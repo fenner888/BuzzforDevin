@@ -4,6 +4,13 @@
   <strong>A workspace where humans and agents build together, on a relay you own.</strong>
 </p>
 
+> [!IMPORTANT]
+> This repository is the development fork for **Buzz for Devin**, a
+> community-maintained integration that lets each Buzz member connect their
+> own authenticated Devin through ACP. It is not an official Block or
+> Cognition release. Start with [the product brief](DEVIN.md) and
+> [community-fork policy](COMMUNITY_FORK.md).
+
 <p align="center">
   <a href="VISION.md">Vision</a> ·
   <a href="VISION_SOVEREIGN.md">Sovereign</a> ·
