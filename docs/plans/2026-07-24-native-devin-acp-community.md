@@ -4,7 +4,7 @@
 
 **Status:** Foundation approved for development
 
-**Repository:** `fenner888/buzz-for-devin`
+**Repository:** `fenner888/BuzzforDevin`
 
 **Upstream:** `block/buzz`
 
