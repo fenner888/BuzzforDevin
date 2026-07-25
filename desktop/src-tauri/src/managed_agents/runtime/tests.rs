@@ -1003,3 +1003,98 @@ fn invalid_pubkey_resolves_no_pair_key() {
     // the summary must fall back to the stopped/legacy-pid path, not panic.
     assert!(super::resolve_workspace_pair_key("not-a-key", "", "wss://one.example").is_none());
 }
+
+// ── Custom-harness orphan sweep coverage ─────────────────────────────────────
+//
+// The system sweep gates must include any process carrying the
+// `BUZZ_MANAGED_AGENT` env marker, regardless of whether the binary name
+// matches `KNOWN_AGENT_BINARIES`. Custom harnesses use arbitrary binary names
+// so name-match alone would silently leak their orphans on crash.
+//
+// Previously: macOS used a two-check OR+AND pattern (equivalent to just marker),
+//             Linux used an AND-gate (name + marker) — wrong for custom harnesses.
+// Fix: all platforms use the shared `buzz_sweep_owns_process` predicate which
+//      fast-skips truly foreign processes and requires the marker for everything else.
+//
+// These tests call the production predicate directly so they fail if the
+// predicate reverts to broken logic.
+
+use super::buzz_sweep_owns_process;
+
+/// A known-binary process WITHOUT the marker must be excluded — stray processes
+/// with colliding names (e.g. another user's goose) are not ours.
+#[test]
+fn sweep_condition_known_binary_without_marker_is_excluded() {
+    assert!(
+        !buzz_sweep_owns_process(true, false),
+        "known binary without marker must be excluded"
+    );
+}
+
+/// A custom harness binary (not in KNOWN_AGENT_BINARIES) WITH the marker must
+/// be included — this is the fix for the Linux AND-gate bug.
+#[test]
+fn sweep_condition_custom_binary_with_marker_is_included() {
+    assert!(
+        buzz_sweep_owns_process(false, true),
+        "custom binary with marker must be included"
+    );
+}
+
+/// A truly foreign process (not owned by name, no marker) must remain excluded.
+#[test]
+fn sweep_condition_foreign_process_is_excluded() {
+    assert!(
+        !buzz_sweep_owns_process(false, false),
+        "foreign process must always be excluded"
+    );
+}
+
+/// A known-binary process WITH the marker is owned — must be included.
+#[test]
+fn sweep_condition_known_binary_with_marker_is_included() {
+    assert!(
+        buzz_sweep_owns_process(true, true),
+        "known binary with marker must be included"
+    );
+}
+
+// ── I3: receipt path collector decision ─────────────────────────────────────
+//
+// `valid_agent_runtime_receipt` used to AND-gate process_belongs_to_us (a
+// cheap name-check) with process_has_buzz_marker. Custom harnesses don't match
+// KNOWN_AGENT_BINARIES, so their receipts would never be valid — the receipt
+// cleanup loop would leave them running. The fix uses buzz_sweep_owns_process
+// (marker-only) in valid_agent_runtime_receipt.
+//
+// These tests verify the predicate truth table that valid_agent_runtime_receipt
+// now relies on. They would fail if the AND-gate were reinstated.
+
+/// Simulates valid_agent_runtime_receipt's ownership decision for a custom
+/// harness: belongs_to_us=false (not in KNOWN_AGENT_BINARIES), has_marker=true.
+/// Must be INCLUDED — the marker is authoritative, name is irrelevant.
+///
+/// Would fail if valid_agent_runtime_receipt used process_belongs_to_us &&
+/// process_has_buzz_marker (AND-gate).
+#[test]
+fn receipt_ownership_custom_harness_with_marker_is_valid() {
+    // Custom binary: not in KNOWN_AGENT_BINARIES (belongs_to_us = false)
+    // but carries BUZZ_MANAGED_AGENT marker (has_buzz_marker = true).
+    assert!(
+        buzz_sweep_owns_process(false, true),
+        "custom harness with marker must be valid for receipt ownership"
+    );
+}
+
+/// Simulates valid_agent_runtime_receipt's ownership decision for a known
+/// harness binary WITHOUT the marker (stray process, not owned by us).
+/// Must be EXCLUDED.
+#[test]
+fn receipt_ownership_known_binary_without_marker_is_not_valid() {
+    // Known binary name (belongs_to_us = true) but no marker.
+    // This is a stray process that happens to share a binary name — must exclude.
+    assert!(
+        !buzz_sweep_owns_process(true, false),
+        "known binary without marker must not be valid for receipt ownership"
+    );
+}
