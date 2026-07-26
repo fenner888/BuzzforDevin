@@ -343,6 +343,15 @@ The final local Apple Silicon source build also passed:
   `fenner888/BuzzforDevin`; ordinary upstream builds retain Block's release
   URLs.
 - The bundle is unsigned as expected for a source build.
+- A separate local Developer ID rehearsal signed every bundled executable, the
+  app, and `Buzz for Devin_0.4.25_aarch64.dmg` with
+  `Developer ID Application: Mark Fenner (Q7H78WYTAR)`. Strict code-signature,
+  application-identity, and entitlement verification passed. The signed DMG
+  SHA-256 was
+  `84d1a126d14c5fb0df64ee93492adf97d5d6dc298d78dc941573e23d3b7bb788`.
+  Gatekeeper then rejected it as `Unnotarized Developer ID`, and stapler
+  reported no ticket, as expected without protected Apple notarization
+  credentials. This artifact was not published.
 - The isolated install, running-app refusal, upgrade, rollback, and recoverable
   uninstall lifecycle suite passed.
 - Installation at `~/Applications/Buzz for Devin.app` preserved application
@@ -358,6 +367,9 @@ The final local Apple Silicon source build also passed:
   environment reviewer may explicitly record acceptance of the documented
   no-safe-upgrade maintenance findings for that short-lived canary; the failed
   audit remains visible and is never relabeled as green.
+- The `buzz-for-devin-release` GitHub environment now exists with a required
+  reviewer. It contains no signing or notarization secrets, so the canary
+  remains fail-closed.
 
 The toolchain snapshot was Rust 1.95.0, Node 24.14.0, pnpm 11.4.0, macOS
 26.5.1 on Apple Silicon, and Devin CLI 3000.2.17. `devin auth status` and
@@ -369,7 +381,9 @@ could contain account context.
 - Complete the live two-context authorization, workspace, restart, and usage
   attribution matrix.
 - Perform a clean-machine install and first-launch test.
-- Configure and validate Apple Developer signing and notarization.
+- Export the validated Developer ID certificate to the protected GitHub
+  environment and configure Apple notarization credentials. Local Developer ID
+  signing is proven; notarization remains blocked.
 - Configure the updater signing key and fork-owned HTTPS endpoint, then test
   update and rollback from signed builds.
 - Resolve or explicitly review the inherited desktop GTK3, `audiopus_sys`,
