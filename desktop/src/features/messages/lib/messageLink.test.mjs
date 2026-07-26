@@ -7,6 +7,7 @@ import {
   parseMessageLink,
   resolveMessageLinkRenderTarget,
 } from "./messageLink.ts";
+import { messageUrlPatternForScheme } from "./remarkMessageLinks.ts";
 
 const CHANNEL = "f570339f-8f8a-4e08-a779-8d954aa44109";
 const MESSAGE =
@@ -118,6 +119,17 @@ test("isMessageLink matches buzz://message and legacy buzz://message", () => {
   assert.equal(isMessageLink("https://example.com"), false);
   assert.equal(isMessageLink(undefined), false);
   assert.equal(isMessageLink(""), false);
+});
+
+test("bare message-link matcher supports the fork scheme and legacy Buzz", () => {
+  const pattern = messageUrlPatternForScheme("buzz-for-devin");
+  const input =
+    "fork buzz-for-devin://message?channel=c&id=1 legacy buzz://message?channel=c&id=2";
+
+  assert.deepEqual(input.match(pattern), [
+    "buzz-for-devin://message?channel=c&id=1",
+    "buzz://message?channel=c&id=2",
+  ]);
 });
 
 test("resolveMessageLinkRenderTarget distinguishes autolinks from labeled links", () => {

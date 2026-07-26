@@ -4,7 +4,13 @@
  * Format: `buzz://message?channel=<uuid>&id=<eventId>[&thread=<rootId>]`
  */
 
-const MESSAGE_LINK_SCHEME = "buzz:";
+import {
+  APP_DEEP_LINK_PROTOCOL,
+  APP_DEEP_LINK_SCHEME,
+  isSupportedAppDeepLinkProtocol,
+} from "../../../shared/appIdentity.ts";
+
+const MESSAGE_LINK_SCHEME = APP_DEEP_LINK_PROTOCOL;
 const MESSAGE_LINK_HOST = "message";
 
 export type MessageLinkInput = {
@@ -67,7 +73,7 @@ export function parseMessageLink(url: string): MessageLinkParseResult {
     return { ok: false, reason: "invalid-url" };
   }
 
-  if (parsed.protocol !== MESSAGE_LINK_SCHEME) {
+  if (!isSupportedAppDeepLinkProtocol(parsed.protocol)) {
     return { ok: false, reason: "wrong-scheme" };
   }
   // `new URL("buzz://message?…")` puts "message" in `hostname`.
@@ -100,7 +106,12 @@ export function parseMessageLink(url: string): MessageLinkParseResult {
  */
 export function isMessageLink(href: string | undefined | null): boolean {
   if (!href) return false;
-  return href.startsWith("buzz://message?") || href === "buzz://message";
+  return (
+    href.startsWith(`${APP_DEEP_LINK_SCHEME}://message?`) ||
+    href === `${APP_DEEP_LINK_SCHEME}://message` ||
+    href.startsWith("buzz://message?") ||
+    href === "buzz://message"
+  );
 }
 
 type MessageLinkRenderInput = {

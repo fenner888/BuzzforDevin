@@ -362,6 +362,10 @@ export type ManagedAgent = {
   parallelism: number;
   systemPrompt: string | null;
   avatarUrl: string | null;
+  runtimeIconUrl: string | null;
+  runtimeAvatarUrl: string | null;
+  runtimeSupersededAvatarUrls: string[];
+  supportsBuzzModelConfig: boolean | null;
   model: string | null;
   /** LLM inference provider, from the agent's pinned record snapshot. */
   provider: string | null;
@@ -488,7 +492,6 @@ export type ManagedAgentLog = {
 export type CancelManagedAgentTurnResult = {
   status: "sent" | "no_active_turn";
 };
-
 /**
  * Outcome of a live `switch_model` control frame, surfaced asynchronously via
  * the agent's `control_result` observer frame. Busy path: `sent` (cancel +
@@ -503,7 +506,7 @@ export type SwitchManagedAgentModelStatus =
   | "no_active_turn";
 
 export type ControlResultFrame = {
-  type: "cancel_turn" | "switch_model";
+  type: "cancel_turn" | "switch_model" | "permission_decision";
   status: string;
   modelId?: string;
 };
@@ -533,7 +536,14 @@ export type AuthStatus =
 export type AcpRuntimeCatalogEntry = {
   id: string;
   label: string;
+  displayLabel: string;
+  sortPriority: number;
+  onboardingVisible: boolean;
+  iconUrl: string;
+  iconScale: number;
   avatarUrl: string;
+  supersededAvatarUrls: string[];
+  supportsBuzzModelConfig: boolean;
   availability: AcpAvailabilityStatus;
   command: string | null;
   binaryPath: string | null;
@@ -697,6 +707,7 @@ export type NormalizedConfig = {
 export type RuntimeConfigSurface = {
   runtimeId: string | null;
   runtimeLabel: string | null;
+  supportsBuzzModelConfig: boolean | null;
   isPreSpawn: boolean;
   normalized: NormalizedConfig;
   advanced: ConfigField[];

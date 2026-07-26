@@ -131,6 +131,10 @@ export type RawManagedAgent = {
   parallelism: number;
   system_prompt: string | null;
   avatar_url?: string | null;
+  runtime_icon_url?: string | null;
+  runtime_avatar_url?: string | null;
+  runtime_superseded_avatar_urls?: string[];
+  supports_buzz_model_config?: boolean | null;
   model: string | null;
   provider: string | null;
   persona_out_of_date: boolean;
@@ -172,7 +176,21 @@ type RawManagedAgentLog = {
 export type RawAcpRuntimeCatalogEntry = {
   id: string;
   label: string;
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  display_label?: string;
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  sort_priority?: number;
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  onboarding_visible?: boolean;
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  icon_url?: string;
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  icon_scale?: number;
   avatar_url: string;
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  superseded_avatar_urls?: string[];
+  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
+  supports_buzz_model_config?: boolean;
   availability: AcpAvailabilityStatus;
   command: string | null;
   binary_path: string | null;
@@ -700,6 +718,10 @@ export function fromRawManagedAgent(agent: RawManagedAgent): ManagedAgent {
     parallelism: agent.parallelism,
     systemPrompt: agent.system_prompt,
     avatarUrl: agent.avatar_url ?? null,
+    runtimeIconUrl: agent.runtime_icon_url ?? null,
+    runtimeAvatarUrl: agent.runtime_avatar_url ?? null,
+    runtimeSupersededAvatarUrls: agent.runtime_superseded_avatar_urls ?? [],
+    supportsBuzzModelConfig: agent.supports_buzz_model_config ?? null,
     model: agent.model,
     provider: agent.provider ?? null,
     personaOutOfDate: agent.persona_out_of_date ?? false,
@@ -733,7 +755,14 @@ function fromRawAcpRuntimeCatalogEntry(
   return {
     id: entry.id,
     label: entry.label,
+    displayLabel: entry.display_label ?? entry.label,
+    sortPriority: entry.sort_priority ?? 100,
+    onboardingVisible: entry.onboarding_visible ?? false,
+    iconUrl: entry.icon_url ?? entry.avatar_url,
+    iconScale: entry.icon_scale ?? 1,
     avatarUrl: entry.avatar_url,
+    supersededAvatarUrls: entry.superseded_avatar_urls ?? [],
+    supportsBuzzModelConfig: entry.supports_buzz_model_config ?? true,
     availability: entry.availability,
     command: entry.command,
     binaryPath: entry.binary_path,

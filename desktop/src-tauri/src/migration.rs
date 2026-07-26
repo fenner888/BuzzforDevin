@@ -264,6 +264,9 @@ const LEGACY_NEST_KNOWLEDGE: &[&str] = &[
 /// so the caller can emit a one-time hint inviting the user to delete it. The
 /// frontend dedupes the hint, so re-firing while `~/.sprout` lingers is benign.
 pub fn migrate_legacy_nest() -> bool {
+    if !should_import_legacy_nest(crate::managed_agents::uses_upstream_nest_namespace()) {
+        return false;
+    }
     let Some(home) = dirs::home_dir() else {
         eprintln!("buzz-desktop: nest-migration: cannot resolve home directory");
         return false;
@@ -274,6 +277,10 @@ pub fn migrate_legacy_nest() -> bool {
         return false;
     };
     migrate_legacy_nest_at(&home.join(".sprout"), &current_nest)
+}
+
+fn should_import_legacy_nest(uses_upstream_namespace: bool) -> bool {
+    uses_upstream_namespace
 }
 
 /// Copy the [`LEGACY_NEST_KNOWLEDGE`] entries from `legacy` to `current`.

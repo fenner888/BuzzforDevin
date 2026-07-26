@@ -1,6 +1,9 @@
-export const BUZZ_RELEASES_URL = "https://github.com/block/buzz/releases";
-const BUZZ_RELEASES_API_URL =
-  "https://api.github.com/repos/block/buzz/releases?per_page=10";
+import {
+  BUZZ_RELEASES_API_URL,
+  BUZZ_RELEASES_URL,
+} from "@/shared/lib/app-identity";
+
+export { BUZZ_RELEASES_URL };
 const CACHE_KEY = "buzz.latestDownload.v1";
 const CACHE_TTL_MS = 60 * 60 * 1000;
 

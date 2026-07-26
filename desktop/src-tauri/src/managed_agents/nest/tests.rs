@@ -3,12 +3,12 @@ use super::*;
 #[test]
 fn nest_dir_is_under_home() {
     if let Some(dir) = nest_dir() {
-        // Accepts both .buzz (prod) and .buzz-dev (dev) depending on
+        // Accepts the configured release nest or .buzz-dev depending on
         // whether init_nest_dir was called before this test ran.
         let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
         assert!(
-            name == NEST_DIR_PROD || name == NEST_DIR_DEV,
-            "nest_dir must end with .buzz or .buzz-dev, got {dir:?}"
+            name == configured_release_nest_dir() || name == NEST_DIR_DEV,
+            "nest_dir must end with the release or dev nest name, got {dir:?}"
         );
     }
 }
@@ -23,10 +23,29 @@ fn init_nest_dir_prod_sets_buzz() {
     if let Some(d) = dir {
         let name = d.file_name().and_then(|n| n.to_str()).unwrap_or("");
         assert!(
-            name == NEST_DIR_PROD || name == NEST_DIR_DEV,
-            "nest_dir suffix must be .buzz or .buzz-dev, got {d:?}"
+            name == configured_release_nest_dir() || name == NEST_DIR_DEV,
+            "nest_dir suffix must be the release or dev nest name, got {d:?}"
         );
     }
+}
+
+#[test]
+fn release_nest_namespace_defaults_to_upstream_and_accepts_build_override() {
+    assert_eq!(release_nest_dir(None), ".buzz");
+    assert_eq!(release_nest_dir(Some(".buzz-for-devin")), ".buzz-for-devin");
+    assert_eq!(
+        uses_upstream_nest_namespace(),
+        configured_release_nest_dir() == ".buzz"
+    );
+}
+
+#[test]
+fn release_cli_link_defaults_to_upstream_and_accepts_build_override() {
+    assert_eq!(release_cli_link_name(None), "buzz");
+    assert_eq!(
+        release_cli_link_name(Some("buzz-for-devin")),
+        "buzz-for-devin"
+    );
 }
 
 #[test]
@@ -330,8 +349,11 @@ fn ensure_skill_symlinks_skip_dangling_symlink() {
 }
 
 #[test]
-fn cli_link_name_prod_is_buzz() {
-    assert_eq!(cli_link_name(false), "buzz");
+fn cli_link_name_prod_uses_configured_release_name() {
+    assert_eq!(
+        cli_link_name(false),
+        release_cli_link_name(option_env!("BUZZ_DESKTOP_BUILD_CLI_LINK_NAME"))
+    );
 }
 
 #[test]

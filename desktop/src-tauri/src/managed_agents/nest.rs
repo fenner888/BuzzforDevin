@@ -1,4 +1,4 @@
-//! Buzz Nest — persistent agent workspace at `~/.buzz`.
+//! Buzz Nest — persistent agent workspace in a build-scoped home directory.
 //!
 //! Creates a shared knowledge directory on first launch so every
 //! Buzz-spawned agent starts with orientation (AGENTS.md) and a
@@ -20,6 +20,12 @@ use tauri::{AppHandle, Manager};
 use crate::managed_agents::discovery::known_skill_dirs;
 #[cfg(unix)]
 use crate::util::create_symlink;
+
+mod release_identity;
+pub use release_identity::{cli_link_name, uses_upstream_nest_namespace};
+use release_identity::{configured_release_nest_dir, NEST_DIR_DEV};
+#[cfg(test)]
+use release_identity::{release_cli_link_name, release_nest_dir};
 
 /// Subdirectories created inside the nest.
 /// `REPOS` is intentionally absent: it is provisioned by
@@ -58,15 +64,6 @@ const END_MARKER: &str = "<!-- END BUZZ MANAGED -->";
 /// Canonical skill directory path relative to the nest root.
 const CANONICAL_SKILL_DIR: &str = ".agents/skills/buzz-cli";
 
-/// Nest directory name for production builds.
-const NEST_DIR_PROD: &str = ".buzz";
-
-/// Nest directory name for dev builds. Dev builds (those whose Tauri app-data
-/// directory name starts with `"xyz.block.buzz.app.dev"`) use a separate nest
-/// so that the DMG and dev-build instances don't clobber each other's
-/// `.repos-dir` dotfile and `REPOS` symlink.
-const NEST_DIR_DEV: &str = ".buzz-dev";
-
 /// Process-lifetime nest directory. Initialized once at startup via
 /// [`init_nest_dir`] before any call to [`nest_dir`].
 ///
@@ -86,7 +83,11 @@ static NEST_DIR: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new
 /// when the Tauri app-data directory name starts with `"xyz.block.buzz.app.dev"`.
 /// Pass `false` for production (signed DMG) builds.
 pub fn init_nest_dir(is_dev: bool) {
-    let suffix = if is_dev { NEST_DIR_DEV } else { NEST_DIR_PROD };
+    let suffix = if is_dev {
+        NEST_DIR_DEV
+    } else {
+        configured_release_nest_dir()
+    };
     let path = dirs::home_dir().map(|h| h.join(suffix));
     // set() is a no-op when already initialized, which is correct: only the
     // first call (at boot, before any filesystem work) should win.
@@ -102,7 +103,7 @@ pub fn nest_dir() -> Option<PathBuf> {
     match NEST_DIR.get() {
         Some(path) => path.clone(),
         // Not yet initialized — fall back to prod path. Covers test code.
-        None => dirs::home_dir().map(|h| h.join(NEST_DIR_PROD)),
+        None => dirs::home_dir().map(|h| h.join(configured_release_nest_dir())),
     }
 }
 
@@ -331,19 +332,6 @@ fn ensure_skill_symlinks(root: &Path) -> Result<(), String> {
 #[cfg(not(unix))]
 fn ensure_skill_symlinks(_root: &Path) -> Result<(), String> {
     Ok(())
-}
-
-/// Returns the `~/.local/bin` link name for the bundled CLI.
-///
-/// Dev builds (`is_dev = true`) use `"buzz-dev"` so that a running DMG and a
-/// concurrent dev build each own a separate link and never clobber each other —
-/// the same isolation that separates `~/.buzz` (prod) from `~/.buzz-dev` (dev).
-pub fn cli_link_name(is_dev: bool) -> &'static str {
-    if is_dev {
-        "buzz-dev"
-    } else {
-        "buzz"
-    }
 }
 
 /// Ensures `~/.local/bin/buzz` (prod) or `~/.local/bin/buzz-dev` (dev) is a

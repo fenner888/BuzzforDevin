@@ -85,13 +85,16 @@ pub(crate) fn compose_path_entries(
 /// Assemble the augmented `PATH` for a launched managed-agent child process.
 ///
 /// Concatenates, in priority order:
-///   1. `<home>/.local/bin` — bundled CLI symlink
-///   2. Buzz-managed npm prefix bin dir — app-private ACP adapter shims
-///   3. Buzz-managed Node.js bin dir — app-private Node/npm runtime
-///   4. `nvm_bin` — nvm's default Node.js bin dir (if the user uses nvm)
-///   5. exe parent dir — DMG sidecars under `Contents/MacOS/`
-///   6. user's login-shell `PATH` — runtimes like node/python from other managers
-///   7. Windows only: the current process `PATH` (appended when no login-shell
+///   1. exe parent dir when it contains the bundled `buzz` sidecar — this keeps
+///      managed agents version-coupled to the app that launched them instead of
+///      resolving another Buzz installation's `~/.local/bin/buzz` symlink
+///   2. `<home>/.local/bin` — user-local CLIs and the compatibility Buzz symlink
+///   3. Buzz-managed npm prefix bin dir — app-private ACP adapter shims
+///   4. Buzz-managed Node.js bin dir — app-private Node/npm runtime
+///   5. `nvm_bin` — nvm's default Node.js bin dir (if the user uses nvm)
+///   6. exe parent dir when it does not contain the bundled `buzz` sidecar
+///   7. user's login-shell `PATH` — runtimes like node/python from other managers
+///   8. Windows only: the current process `PATH` (appended when no login-shell
 ///      PATH exists, because callers use `Command::env("PATH", …)` which
 ///      *replaces* the child's PATH — without this, the child loses node/npm/git
 ///      and every npm `.cmd` shim fails with `'node' is not recognized`)
@@ -111,9 +114,15 @@ pub(in crate::managed_agents) fn build_augmented_path(
     let home_added = home.is_some();
     let exe_added = exe_parent.is_some();
     let has_local_context = home_added || exe_added;
+    let prefer_exe_parent = exe_parent
+        .as_deref()
+        .is_some_and(|parent| parent.join(buzz_binary_name()).is_file());
 
     // Build the managed/prefix entries (everything before login-shell PATH).
     let mut managed: Vec<PathBuf> = Vec::new();
+    if prefer_exe_parent {
+        managed.extend(exe_parent.iter().cloned());
+    }
     if let Some(home) = home {
         managed.push(home.join(".local").join("bin"));
     }
@@ -131,8 +140,8 @@ pub(in crate::managed_agents) fn build_augmented_path(
     if let Some(nvm_bin) = nvm_bin {
         managed.push(nvm_bin);
     }
-    if let Some(parent) = exe_parent {
-        managed.push(parent);
+    if !prefer_exe_parent {
+        managed.extend(exe_parent);
     }
 
     // Split the login-shell PATH into individual entries.
@@ -157,6 +166,16 @@ pub(in crate::managed_agents) fn build_augmented_path(
         .map(|s| s.to_string_lossy().into_owned())
 }
 
+#[cfg(windows)]
+fn buzz_binary_name() -> &'static str {
+    "buzz.exe"
+}
+
+#[cfg(not(windows))]
+fn buzz_binary_name() -> &'static str {
+    "buzz"
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_augmented_path;
@@ -165,22 +184,20 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn splits_colon_delimited_shell_path() {
+        let app_dir = tempfile::tempdir().expect("temp app directory");
         // Regression: the shell PATH arrives as one colon-delimited string. It
         // must be split into segments before join_paths, or join_paths rejects
         // it and the whole augmented PATH collapses to None (managed agents then
         // lose `buzz`).
         let result = build_augmented_path(
             Some(PathBuf::from("/home/agent")),
-            Some(PathBuf::from("/Applications/Buzz.app/Contents/MacOS")),
+            Some(app_dir.path().to_path_buf()),
             Some("/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin".to_string()),
             None,
         );
         let result = result.expect("path");
         assert!(result.starts_with("/home/agent/.local/bin:"), "{result}");
-        assert!(
-            result.contains(":/Applications/Buzz.app/Contents/MacOS:"),
-            "{result}"
-        );
+        assert!(result.contains(app_dir.path().to_str().expect("utf-8 path")));
         assert!(
             result.ends_with(":/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"),
             "{result}"
@@ -202,9 +219,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn nvm_bin_inserted_after_local_bin_before_exe_parent() {
+        let app_dir = tempfile::tempdir().expect("temp app directory");
         let result = build_augmented_path(
             Some(PathBuf::from("/home/user")),
-            Some(PathBuf::from("/Applications/Buzz.app/Contents/MacOS")),
+            Some(app_dir.path().to_path_buf()),
             Some("/usr/bin:/bin".to_string()),
             Some(PathBuf::from("/home/user/.nvm/versions/node/v20.0.0/bin")),
         );
@@ -214,7 +232,7 @@ mod tests {
             .find("/home/user/.nvm/versions/node/v20.0.0/bin")
             .unwrap();
         let exe = result
-            .find("/Applications/Buzz.app/Contents/MacOS")
+            .find(app_dir.path().to_str().expect("utf-8 path"))
             .unwrap();
         assert!(local < nvm && nvm < exe, "{result}");
         assert!(result.ends_with(":/usr/bin:/bin"), "{result}");
@@ -232,6 +250,47 @@ mod tests {
         let result = result.expect("path");
         assert!(result.starts_with("/home/user/.local/bin:"), "{result}");
         assert!(result.ends_with(":/usr/local/bin"), "{result}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bundled_buzz_precedes_another_installations_local_symlink() {
+        let app_dir = tempfile::tempdir().expect("temp app directory");
+        std::fs::File::create(app_dir.path().join("buzz")).expect("bundled buzz sidecar");
+
+        let result = build_augmented_path(
+            Some(PathBuf::from("/home/user")),
+            Some(app_dir.path().to_path_buf()),
+            Some("/usr/bin:/bin".to_string()),
+            None,
+        )
+        .expect("path");
+
+        let bundled = result
+            .find(app_dir.path().to_str().expect("utf-8 path"))
+            .unwrap();
+        let local = result.find("/home/user/.local/bin").unwrap();
+        assert!(bundled < local, "{result}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exe_parent_without_bundled_buzz_keeps_existing_path_order() {
+        let app_dir = tempfile::tempdir().expect("temp app directory");
+
+        let result = build_augmented_path(
+            Some(PathBuf::from("/home/user")),
+            Some(app_dir.path().to_path_buf()),
+            Some("/usr/bin:/bin".to_string()),
+            None,
+        )
+        .expect("path");
+
+        let bundled = result
+            .find(app_dir.path().to_str().expect("utf-8 path"))
+            .unwrap();
+        let local = result.find("/home/user/.local/bin").unwrap();
+        assert!(local < bundled, "{result}");
     }
 
     /// On Unix, supplying a `shell_path` must NOT trigger the Windows process-PATH

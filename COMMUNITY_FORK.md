@@ -9,7 +9,10 @@ their own authenticated Devin agents.
 
 - This is not an official Block release.
 - This is not an official Cognition release.
-- The project is in foundation and integration development.
+- Native Devin runtime support is implemented and covered by focused and
+  regression tests.
+- Local proof and release hardening are in progress; multi-user isolation,
+  signed packaging, and upstream review are not yet complete.
 - No public release is currently represented as production ready.
 
 ## Integration Boundary
@@ -52,6 +55,11 @@ that can be proposed to `block/buzz`, including:
 Fork-only branding, installers, release workflows, and community defaults
 remain separate from upstream-facing changes.
 
+The proposed generic patch boundaries and fork-only exclusions are recorded in
+[docs/buzz-for-devin-upstream-patch-plan.md](docs/buzz-for-devin-upstream-patch-plan.md).
+Reviewer-ready upstream descriptions are drafted in
+[docs/buzz-for-devin-upstream-pr-drafts.md](docs/buzz-for-devin-upstream-pr-drafts.md).
+
 If upstream Buzz ships equivalent native Devin support, duplicate integration
 logic should be removed from this fork.
 
@@ -60,6 +68,20 @@ logic should be removed from this fork.
 The initial distribution target is a locally built macOS application installed
 under `~/Applications`. It will use immutable source tags and clearly describe
 what is built and installed.
+
+The source-build distribution uses `Buzz for Devin`,
+`community.buzzfordevin.desktop`, `buzz-for-devin://`, and the
+`buzz-for-devin-desktop` Keychain service. Its `~/.buzz-for-devin` Nest and
+`~/.local/bin/buzz-for-devin` convenience link are also isolated so it can
+coexist with upstream Buzz.
+See [docs/buzz-for-devin-macos.md](docs/buzz-for-devin-macos.md).
+The signed release, clean-machine, updater, rollback, and publication gates are
+defined in
+[docs/buzz-for-devin-release-checklist.md](docs/buzz-for-devin-release-checklist.md).
+The candidate evidence schema and public release-note draft live in
+[docs/buzz-for-devin-validation-record-template.md](docs/buzz-for-devin-validation-record-template.md)
+and
+[docs/buzz-for-devin-release-notes-draft.md](docs/buzz-for-devin-release-notes-draft.md).
 
 The Devin CLI must come from Cognition's official installation path. Buzz for
 Devin will not redistribute a privately built or modified Devin executable.

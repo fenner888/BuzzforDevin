@@ -868,6 +868,12 @@ fn migrate_legacy_nest_carries_knowledge_and_skips_repos() {
 }
 
 #[test]
+fn isolated_release_nest_does_not_import_legacy_sprout_knowledge() {
+    assert!(!super::should_import_legacy_nest(false));
+    assert!(super::should_import_legacy_nest(true));
+}
+
+#[test]
 fn migrate_legacy_nest_does_not_clobber_existing_destination() {
     let dir = tempfile::tempdir().unwrap();
     let legacy = dir.path().join(".sprout");

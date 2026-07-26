@@ -291,7 +291,17 @@ fn parse_nostr_bind_deep_link(url: &Url) -> Result<NostrBindDeepLinkPayload, Str
     })
 }
 
-/// Handle an incoming `buzz://` deep link URL.
+const DEFAULT_DEEP_LINK_SCHEME: &str = "buzz";
+
+fn configured_deep_link_scheme() -> &'static str {
+    option_env!("BUZZ_DESKTOP_BUILD_DEEP_LINK_SCHEME").unwrap_or(DEFAULT_DEEP_LINK_SCHEME)
+}
+
+fn is_supported_deep_link_scheme(scheme: &str) -> bool {
+    scheme == configured_deep_link_scheme() || scheme == DEFAULT_DEEP_LINK_SCHEME
+}
+
+/// Handle an incoming Buzz deep link URL.
 ///
 /// Currently supports:
 /// - `buzz://connect?relay=<ws(s)://...>` — emits `deep-link-connect` to the frontend
@@ -304,7 +314,7 @@ pub(crate) fn handle_deep_link_url(app: &tauri::AppHandle, url_str: &str) {
         }
     };
 
-    if url.scheme() != "buzz" {
+    if !is_supported_deep_link_scheme(url.scheme()) {
         eprintln!("buzz-desktop: ignoring unsupported deep link scheme: {url_str}");
         return;
     }
@@ -386,7 +396,15 @@ pub(crate) fn handle_deep_link_url(app: &tauri::AppHandle, url_str: &str) {
 
 #[cfg(test)]
 mod tests {
+    use super::{configured_deep_link_scheme, is_supported_deep_link_scheme};
     use url::Url;
+
+    #[test]
+    fn configured_scheme_keeps_legacy_buzz_links_compatible() {
+        assert!(is_supported_deep_link_scheme(configured_deep_link_scheme()));
+        assert!(is_supported_deep_link_scheme("buzz"));
+        assert!(!is_supported_deep_link_scheme("https"));
+    }
 
     use super::{
         parse_add_community_deep_link, parse_join_deep_link, parse_message_deep_link,
