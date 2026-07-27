@@ -67,7 +67,7 @@ attribution has not yet been confirmed in Cognition's dashboard.
 | Check | Result | Redacted observation |
 | --- | --- | --- |
 | A can invoke agent A | pass | Prior live owner invocation passed; re-confirmed 2026-07-27 18:29 UTC |
-| B cannot invoke agent A under owner-only | not run | Live cross-owner denial remains open |
+| B cannot invoke agent A under owner-only | pass | 2026-07-27: established by the revocation test — with agent A back on `owner-only`, B attempted an invocation and was denied |
 | B can invoke agent B | pass | Exact DM reply `MFENNER_CONTEXT_OK` appeared |
 | A cannot invoke agent B under owner-only | not run | Live cross-owner denial remains open |
 | Explicitly allowlisted B can invoke agent A | pass | 2026-07-27: B appeared in B's mention list via the kind:30177 directory, B's channel mention passed the inbound gate, and the turn published one reply in 6.4s |
