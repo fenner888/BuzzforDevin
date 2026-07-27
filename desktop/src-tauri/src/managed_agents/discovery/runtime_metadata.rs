@@ -156,7 +156,7 @@ mod tests {
             "https://goose-docs.ai/docs/getting-started/installation/"
         );
         assert!(goose.adapter_install_instructions_url.is_empty());
-        assert!(goose.cli_install_hint.contains("desktop app alone"));
+        assert!(goose.cli_install_hint.contains("Goose CLI"));
         assert!(goose
             .cli_install_commands_windows
             .iter()
@@ -174,7 +174,7 @@ mod tests {
         assert!(claude
             .adapter_install_instructions_url
             .contains("claude-agent-acp"));
-        assert!(claude.cli_install_hint.contains("desktop app alone"));
+        assert!(claude.cli_install_hint.contains("Claude Code CLI"));
 
         let codex = known_acp_runtime_exact("codex").unwrap();
         assert_eq!(
@@ -182,7 +182,7 @@ mod tests {
             "https://developers.openai.com/codex/cli/"
         );
         assert!(codex.adapter_install_instructions_url.contains("codex-acp"));
-        assert!(codex.cli_install_hint.contains("desktop app alone"));
+        assert!(codex.cli_install_hint.contains("Codex CLI"));
 
         let devin = known_acp_runtime_exact("devin").unwrap();
         assert_eq!(devin.commands, &["devin"]);
@@ -228,6 +228,6 @@ mod tests {
             ]
         );
         assert!(devin.adapter_install_commands.is_empty());
-        assert!(devin.cli_install_hint.contains("desktop app alone"));
+        assert!(devin.cli_install_hint.contains("Devin CLI"));
     }
 }

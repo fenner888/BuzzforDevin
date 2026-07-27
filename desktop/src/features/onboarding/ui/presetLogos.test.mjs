@@ -16,7 +16,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { PRESET_LOGOS } from "./RuntimeIcon.tsx";
+import { RUNTIME_MARKS } from "./HarnessMarks.tsx";
+import { getRuntimeLogoUrl, PRESET_LOGOS } from "./RuntimeIcon.tsx";
 
 const desktopRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -46,28 +47,19 @@ test("PRESET_HARNESSES parse found the preset ids", () => {
   );
 });
 
-const FALLBACK_ONLY_PRESETS = new Set([
-  // Cursor publishes official assets, but neither its brand page nor terms grant
-  // third parties permission to redistribute them. Keep the generic icon.
-  "cursor",
-]);
-
 for (const id of presetIds) {
-  test(`preset "${id}" has a bundled logo or an approved fallback`, () => {
-    const logoPath = PRESET_LOGOS[id];
-    if (FALLBACK_ONLY_PRESETS.has(id)) {
-      assert.equal(
-        logoPath,
-        undefined,
-        `preset "${id}" must keep the generic TerminalSquare fallback until ` +
-          "its vendor grants logo redistribution permission",
-      );
+  test(`preset "${id}" has a bundled logo or inline mark`, () => {
+    // Inline SVG marks (RUNTIME_MARKS) take precedence over bitmap logos —
+    // e.g. Cursor's mark ships as an inline CC0 simple-icons path, not a
+    // file under desktop/public.
+    if (RUNTIME_MARKS[id]) {
       return;
     }
+    const logoPath = PRESET_LOGOS[id];
     assert.ok(
       logoPath,
-      `preset "${id}" has no PRESET_LOGOS entry — it renders the generic ` +
-        `TerminalSquare fallback. Add desktop/public${logoPath ?? `/harness-logos/${id}.png`} ` +
+      `preset "${id}" has no RUNTIME_MARKS or PRESET_LOGOS entry — it renders ` +
+        `the generic TerminalSquare fallback. Add desktop/public${logoPath ?? `/harness-logos/${id}.png`} ` +
         `and map it in RuntimeIcon.tsx.`,
     );
     assert.ok(
@@ -86,5 +78,51 @@ test("PRESET_LOGOS has no entries for unknown presets", () => {
     unknown,
     [],
     `PRESET_LOGOS maps ids the backend does not emit as presets: ${unknown.join(", ")}`,
+  );
+});
+
+test("codex ships no bundled mark or logo (vendor-removed OpenAI blossom)", () => {
+  // The OpenAI blossom was removed from simple-icons v16 at the vendor's
+  // request — Codex must render RuntimeIcon's neutral terminal-glyph
+  // fallback, not a re-bundled copy of the withdrawn mark.
+  assert.equal(
+    RUNTIME_MARKS.codex,
+    undefined,
+    "codex has a RUNTIME_MARKS entry — the OpenAI blossom must not ship without explicit approval",
+  );
+  assert.equal(
+    PRESET_LOGOS.codex,
+    undefined,
+    "codex has a PRESET_LOGOS entry — no bundled Codex logo is approved",
+  );
+});
+
+test("built-in catalog icons are restricted to app-local paths", () => {
+  assert.equal(
+    getRuntimeLogoUrl({
+      id: "devin",
+      iconUrl: "/runtime-icons/devin.svg",
+      source: "builtin",
+    }),
+    "/runtime-icons/devin.svg",
+  );
+  assert.equal(
+    getRuntimeLogoUrl({
+      id: "untrusted-builtin",
+      iconUrl: "https://tracker.example/pixel.png",
+      source: "builtin",
+    }),
+    null,
+  );
+});
+
+test("custom entries cannot load user-controlled icon URLs", () => {
+  assert.equal(
+    getRuntimeLogoUrl({
+      id: "custom-runtime",
+      iconUrl: "https://tracker.example/pixel.png",
+      source: "custom",
+    }),
+    null,
   );
 });
