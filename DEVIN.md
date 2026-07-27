@@ -33,12 +33,14 @@ Goose, Buzz Agent, and custom-runtime bootstrap behavior is unchanged.
 
 Devin's catalog entry disables the harness's historical permission
 auto-approval and enforces `default` mode. When Devin requests permission,
-Buzz presents the agent owner with the exact options Devin offered. The
+Buzz presents the agent owner with exact per-request **Allow once** and
+**Deny** actions when Devin offers the corresponding one-shot options. The
 encrypted owner-signed decision must match the exact channel, turn, and ACP
-request, and the selected option must belong to that request; stale, unknown,
-missing, and timed-out decisions fail closed. Other runtimes retain their
-existing behavior. Buzz does not automatically switch Devin into a bypass
-mode, grant persistent approval, or edit Devin permission configuration.
+request, and the selected one-shot option must belong to that request; stale,
+unknown, missing, persistent, and timed-out decisions fail closed. Other
+runtimes retain their existing behavior. Buzz does not automatically switch
+Devin into a bypass mode, grant persistent approval, or edit Devin permission
+configuration.
 
 The project is not yet a public release. The installed bundle now proves that
 the packaged desktop launches its sibling `buzz-acp`, which in turn launches

@@ -98,13 +98,13 @@ As of 2026-07-26, Phase 1 is implemented in the fork:
   falling back to upstream `~/.buzz`.
 - Devin's catalog policy disables permission auto-approval, enables the
   owner-consent bridge, and enforces `default` mode. ACP
-  `session/request_permission` requests surface the choices offered by the
-  runtime, including one-time and persistent choices where available. Buzz
-  returns only the exact option selected by the owner; that option must belong
-  to the current request, and the encrypted owner-signed decision must match
-  the exact channel, turn, and request id. Stale, unknown, absent, or timed-out
-  decisions fail closed. Buzz never selects a persistent grant or bypass mode
-  automatically.
+  `session/request_permission` requests surface exact per-request **Allow
+  once** and **Deny** actions when the runtime offers the corresponding
+  one-shot choices. Buzz returns only the exact one-shot option selected by
+  the owner; that option must belong to the current request, and the encrypted
+  owner-signed decision must match the exact channel, turn, and request id.
+  Stale, unknown, absent, persistent, or timed-out decisions fail closed. Buzz
+  never selects a persistent grant or bypass mode.
 - Newly created Devin agents default to one worker. Existing saved agents keep
   their stored worker count because the legacy record format cannot
   distinguish an old default from an explicit user choice.
@@ -264,10 +264,11 @@ Buzz does not automatically select bypass mode, add broad Read or Write grants,
 or modify project or user Devin configuration. A community message must not
 silently widen filesystem access beyond the workspace and permission scopes the
 owner chose. Buzz projects ACP permission requests into its owner-only activity
-surface. The owner can explicitly select one of the exact options offered by
-the runtime. Buzz validates the option against that live request before
-returning it; unknown options, timeout, stale controls, and unattended turns
-fail closed. Buzz does not automatically choose persistent approval or bypass.
+surface. The owner can explicitly select an exact one-shot allow or reject
+option offered by the runtime. Buzz validates the option against that live
+request before returning it; unknown or persistent options, timeout, stale
+controls, and unattended turns fail closed. Buzz does not choose persistent
+approval or bypass.
 
 Cognition's optional
 [`--sandbox` flag](https://docs.devin.ai/cli/sandbox) adds OS-level isolation
@@ -361,9 +362,9 @@ message was sent, and consecutive top-level DM probes completed in about four
 seconds with one reply each in the main timeline. A later Welcome-thread test
 showed that Buzz displayed Devin's session/workspace approval choices but
 offered only **Allow once** and **Deny** actions, so ordinary
-`buzz messages send` publication prompted on every turn. Exact-option selection
-with live-request validation is now implemented and covered by the focused and
-broader test suites; no option is selected automatically.
+`buzz messages send` publication prompted on every turn. Exact one-shot option
+selection with live-request validation is now implemented and covered by the
+focused and broader test suites; no option is selected automatically.
 
 The installed-app message-location check also established two distinct rules.
 A top-level human message in a regular channel intentionally receives the
