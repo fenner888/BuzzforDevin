@@ -203,9 +203,10 @@ signing.
 ## Local validation snapshot
 
 This is development evidence, not release sign-off. The latest generic
-integration series is locally committed on `agent/upstream-native-devin-acp`
-at `a58835d9`, based on public upstream commit `63c62fcf3eb5`. It is not an
-immutable release candidate and has not been pushed or submitted.
+integration series is committed on `agent/upstream-native-devin-acp` at
+`fff496e6`, based on public upstream commit `63c62fcf3eb5`. It is not an
+immutable release candidate. The series is submitted only as draft
+[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072).
 
 The following complete gates passed on 2026-07-25 against the then-current
 upstream base; the 2026-07-26 refresh evidence is recorded below. After the
@@ -307,7 +308,7 @@ mobile tests with one intentional skip.
 
 Public upstream subsequently advanced to `63c62fcf3eb5`. The generic runtime
 and permission changes were adapted to that architecture and committed locally
-as `e36a002b` and `a58835d9`. The final series has a clean worktree and scope
+as `26ca733c` and `fff496e6`. The final series has a clean worktree and scope
 audit and contains no fork branding, distribution, signing, dependency
 manifest, or lockfile changes. All 614 `buzz-acp` unit tests, 9 lifecycle
 integration tests, 1,811 Tauri library tests (14 intentional ignores), 3 mixer

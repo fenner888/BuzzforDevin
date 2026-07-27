@@ -249,8 +249,8 @@ On 2026-07-26, the generic patch was refreshed onto public `block/buzz`
 `63c62fcf3eb5321262e8b7c4e299d110de330884` and committed only to the local
 branch `agent/upstream-native-devin-acp`:
 
-- `e36a002b` — `feat(desktop): add native Devin ACP runtime`
-- `a58835d9` — `feat(acp): mediate runtime permissions through owners`
+- `26ca733c` — `feat(desktop): add native Devin ACP runtime`
+- `fff496e6` — `feat(acp): mediate runtime permissions through owners`
 
 The series contains no fork product name, bundle identity, installer, signing
 workflow, publication configuration, dependency manifest, or lockfile change.
@@ -273,8 +273,10 @@ Validation on the committed series passed:
 
 The disposable integration worktree was removed after validation to recover
 disk space. The branch and both commits remain in the repository and can be
-recreated as a worktree without changing the fork development branch. Nothing
-was pushed and no pull request was opened.
+recreated as a worktree without changing the fork development branch. The
+series was pushed to the fork and opened as draft
+[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). Its DCO check
+passes; review and upstream acceptance remain open.
 
 ## Remaining upstream prerequisites
 
