@@ -2,6 +2,12 @@
 
 **Review date:** 2026-07-25
 
+> **Status update (2026-07-27):** The broad upstream draft PR #3072 is closed
+> and superseded by the focused Devin preset
+> [`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225), built on
+> Block's merged generic BYOH seam. Historical commit and validation references
+> below describe the earlier review candidate.
+
 **Scope:** native Devin ACP runtime, managed-process launch policy, workspace
 mapping, account isolation, invocation authorization, local packaging, and the
 fork web deep-link boundary.

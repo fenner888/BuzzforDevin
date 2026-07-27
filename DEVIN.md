@@ -13,6 +13,11 @@ workspace, permissions, and usage plan they already control.
 
 This project is not an official Block or Cognition release.
 
+Builders can use the immutable source preview before upstream merge by
+following [the cross-platform builder guide](docs/buzz-for-devin-builders.md).
+The focused merge proposal is
+[`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225).
+
 ## Implementation Status
 
 Native Devin runtime support is implemented and validated in the development
@@ -42,16 +47,17 @@ runtimes retain their existing behavior. Buzz does not automatically switch
 Devin into a bypass mode, grant persistent approval, or edit Devin permission
 configuration.
 
-The project is not yet a public release. The installed bundle now proves that
-the packaged desktop launches its sibling `buzz-acp`, which in turn launches
-the official `devin acp`. A same-name development-agent DM was identified as a
-separate public identity; opening a DM from the installed agent's own profile
-created the correct membership and delivered the prompt. That turn initialized
-without Buzz's previous forced-model warning. A corrected installed-app prompt
-permitted only the Buzz publication call; after an explicit **Allow once**
-decision, Devin published the requested exact reply and Buzz rendered it under
-the requested reply destination. That also proved the packaged sibling `buzz`
-CLI is selected ahead of an unrelated Buzz installation.
+The project publishes an immutable source-only technical alpha, not an unsigned
+binary download or production-ready public release. The installed Apple Silicon
+bundle proves that the packaged desktop launches its sibling `buzz-acp`, which
+in turn launches the official `devin acp`. A same-name development-agent DM was
+identified as a separate public identity; opening a DM from the installed
+agent's own profile created the correct membership and delivered the prompt.
+That turn initialized without Buzz's previous forced-model warning. A corrected
+installed-app prompt permitted only the Buzz publication call; after an explicit
+**Allow once** decision, Devin published the requested exact reply and Buzz
+rendered it under the requested reply destination. That also proved the
+packaged sibling `buzz` CLI is selected ahead of an unrelated Buzz installation.
 
 Installed-app inspection found that a normal top-level DM question could still
 receive Devin's answer only inside the question's thread. Regular channel
@@ -94,19 +100,18 @@ top-level DM, a cold probe reached ACP in about 2.4 seconds and completed in
 completed in 4.047 seconds. Each produced exactly one requested reply in the
 main DM timeline, with the white-background Devin avatar and no thread.
 
-No MCP configuration or credentials were inspected or changed. The generic
-runtime and permission changes are separated into a two-commit,
-public-upstream-compatible series on `agent/upstream-native-devin-acp` and
-submitted as draft
-[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). The series has
-been refreshed onto current public upstream and pushed to that draft; upstream
-review remains open. A second macOS-user context proved its own isolated Buzz
-identity, Nest, authenticated Devin runtime, reply path, and process cleanup.
-The remaining cross-owner, allowlist, workspace-marker, restart, and
-account-attribution rows plus signed release packaging remain in progress.
-Cognition's signed-in CLI usage surface has shown nonzero usage attributed to
-the locally authenticated user after the official-CLI smoke path; no
-credentials were inspected.
+No MCP configuration or credentials were inspected or changed. After upstream
+merged the generic BYOH harness seam, the upstream contribution was reduced to
+the focused Devin preset, official command, logo, metadata, and tests in
+[`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225). Fork-only
+branding, compatibility behavior, distribution, and community policy remain
+outside that merge proposal. A second macOS-user context proved its own isolated
+Buzz identity, Nest, authenticated Devin runtime, reply path, process cleanup,
+allowlisted invocation, and revocation boundary. Cognition's signed-in CLI usage
+surface showed usage attributed to the locally authenticated user after the
+official-CLI smoke path; no credentials were inspected. Windows and Linux
+source previews are available for builders, while live Devin ACP acceptance on
+those hosts remains pending.
 Development agent names such as "Devin Phase 2" are local test fixtures;
 released agents and the runtime catalog are not phase-numbered.
 

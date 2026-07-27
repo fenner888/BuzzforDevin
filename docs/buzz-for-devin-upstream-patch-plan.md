@@ -1,5 +1,11 @@
 # Buzz for Devin upstream patch plan
 
+> **Current upstream path (2026-07-27):** Block merged the generic BYOH harness
+> seam in PR #2773. The earlier broad draft PR #3072 is closed and superseded
+> by the focused Devin preset
+> [`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225). The patch
+> boundaries below remain an architectural and historical review record.
+
 This document separates generally useful Buzz changes from community-fork
 distribution work. The generic runtime series is prepared locally; it does not
 authorize a push, tag, pull request, or release.

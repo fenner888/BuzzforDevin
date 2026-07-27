@@ -3,10 +3,12 @@
 **Date:** 2026-07-24
 
 **Status:** Native runtime implementation, automated validation, documentation,
-unsigned macOS packaging, one installed live publication, automatic relaunch,
-and rebuilt restart-tree proof are complete. Cold first-turn latency
-investigation, two-context isolation, signed clean-machine release validation,
-publication, and upstream submission remain open.
+unsigned macOS packaging, automatic relaunch, restart-tree proof, two-context
+authorization testing, and an immutable source alpha are complete. The earlier
+broad upstream draft is superseded by focused
+[`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225). Windows and
+Linux source previews await live ACP acceptance; signed clean-machine binary
+release validation remains open.
 
 **Repository:** `fenner888/BuzzforDevin`
 

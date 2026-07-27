@@ -11,11 +11,14 @@ their own authenticated Devin agents.
 - This is not an official Cognition release.
 - Native Devin runtime support is implemented and covered by focused and
   regression tests.
-- Local proof is complete. A second macOS-user context has also proven its own
-  isolated identity, Nest, authenticated Devin runtime, reply path, and process
-  cleanup. The remaining live authorization/workspace matrix, notarized
-  packaging, and upstream review are not yet complete.
-- No public release is currently represented as production ready.
+- Local proof and the two-context authorization checks are complete. A second
+  macOS-user context proved its own isolated identity, Nest, authenticated
+  Devin runtime, reply path, and process cleanup.
+- The immutable source alpha and cross-platform builder preview are available
+  from [the releases page](https://github.com/fenner888/BuzzforDevin/releases).
+  No public binary release is represented as production ready.
+- The focused upstream preset is proposed in
+  [`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225).
 
 ## Integration Boundary
 
@@ -67,9 +70,20 @@ logic should be removed from this fork.
 
 ## Distribution
 
-The initial distribution target is a locally built macOS application installed
-under `~/Applications`. It will use immutable source tags and clearly describe
-what is built and installed.
+The pre-merge testing path is source-first, matching the way other Buzz harness
+presets can be exercised before upstream merge. Builders use an immutable source
+tag and run the reviewed checkout directly; this fork does not redistribute an
+unsigned application.
+
+The cross-platform source-preview instructions are in
+[docs/buzz-for-devin-builders.md](docs/buzz-for-devin-builders.md). Apple
+Silicon has completed live acceptance. Intel macOS, Linux, and Windows remain
+experimental until a real builder completes the documented Devin ACP acceptance
+on each host.
+
+The initial packaged distribution target remains a locally built macOS
+application installed under `~/Applications`. It uses immutable source tags and
+clearly describes what is built and installed.
 
 The source-build distribution uses `Buzz for Devin`,
 `community.buzzfordevin.desktop`, `buzz-for-devin://`, and the
@@ -88,8 +102,10 @@ and
 The Devin CLI must come from Cognition's official installation path. Buzz for
 Devin will not redistribute a privately built or modified Devin executable.
 
-Windows and Linux support are later milestones, not implied by the first
-macOS release.
+Windows and Linux source previews do not require Apple signing. Supported
+Windows or Linux binary releases remain later milestones and require
+platform-specific packaging and live acceptance; Windows executable signing
+is a separate trust decision from Apple notarization.
 
 ## Licensing and Names
 

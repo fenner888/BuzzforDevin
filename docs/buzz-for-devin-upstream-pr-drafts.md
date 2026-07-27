@@ -1,12 +1,13 @@
 # Buzz for Devin upstream pull-request drafts
 
-These are review-boundary drafts. The generic implementation is committed on
-`agent/upstream-native-devin-acp` and submitted as draft
-[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). The current
-two-commit draft combines the catalog/native-runtime work and the
-owner-permission work while keeping fork branding and distribution out. The
-smaller boundaries below remain available if upstream reviewers request a
-split.
+> **Current upstream path (2026-07-27):** The generic BYOH seam shipped through
+> Block PR #2773. The broad draft PR #3072 is closed. The active,
+> merge-focused contribution is
+> [`block/buzz` PR #3225](https://github.com/block/buzz/pull/3225), containing
+> only the Devin preset, official command, logo, metadata, and tests.
+
+The smaller boundaries below are retained as historical review drafts and as
+fallback context if upstream reviewers request a different split.
 
 ## PR 1: catalog-driven native runtime capabilities
 
