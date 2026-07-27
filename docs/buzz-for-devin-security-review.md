@@ -126,22 +126,53 @@ from the other side. Revocation should either propagate to the definition or
 say plainly that it has not. Until then, treat revocation as incomplete until
 both the instance and its definition have been checked.
 
-### Non-allowlist modes republish a stale allowlist (2026-07-27 finding)
+### Non-allowlist modes republished a stale allowlist (2026-07-27 — fixed)
 
-The definition write path clears the allowlist whenever the mode is not
-`allowlist`, because "storing it for other modes would republish stale pubkeys
-the author didn't choose" (`apply_persona_behavior`). The instance write path
-does not. After revoking the one allowlisted identity, the instance record and
-its public kind:30177 projection both still carried that pubkey alongside
-`"respond_to":"owner-only"`.
+**Finding.** The definition write path clears the allowlist whenever the mode
+is not `allowlist`, because "storing it for other modes would republish stale
+pubkeys the author didn't choose" (`apply_persona_behavior`). The instance
+write path did not. After revoking the one allowlisted identity, the instance
+record and its public kind:30177 projection both still carried that pubkey
+alongside `"respond_to":"owner-only"`.
 
-This is a disclosure and hygiene defect, not an access-control one. Spawn drops
-`BUZZ_ACP_RESPOND_TO_ALLOWLIST` for non-allowlist modes, and
+This was a disclosure and hygiene defect, not an access-control one. Spawn
+drops `BUZZ_ACP_RESPOND_TO_ALLOWLIST` for non-allowlist modes, and
 `relayAgentIsSharedWithUser` gates on `respondTo === "allowlist"` before it
-consults membership, so the stale entry grants nothing and does not restore
-the agent to the revoked identity's autocomplete. The residual harm is that a
-revoked association stays publicly readable on the relay. The instance path
-should match the definition path.
+consults membership, so the stale entry granted nothing and did not restore
+the agent to the revoked identity's autocomplete. The harm was that a revoked
+association stayed publicly readable on the relay.
+
+**Disposition — fixed.** `agent_event_content` now omits the allowlist unless
+the mode is `Allowlist`. The instance record still retains entries across mode
+toggles, deliberately, so an owner can switch away and back without retyping
+them; the projection is what drops them. Verified live: after revoking, the
+published kind:30177 for the instance no longer carried the revoked pubkey.
+Pinned by `projection_omits_allowlist_for_non_allowlist_modes`.
+
+## Allowlisted-agent discovery diverges from upstream on purpose (2026-07-27)
+
+This fork shows an agent in mention autocomplete when the current identity is
+on that agent's allowlist. Upstream deliberately does not: `block/buzz`
+commit `a4dfead2`, "fix(desktop): prefer live agent mentions" (#2149), added
+`isAgentIdentityInManagedList` and renamed its coverage from "allowlisted relay
+agents are visible in channel mentions" to "relay-only agents stay hidden from
+channel mentions even when allowlisted". Upstream's model is that autocomplete
+lists agents you *manage*, and relay policy does not confer discovery.
+
+The fork needs the opposite for its two-account case: an identity that has been
+granted access must be able to find the agent it can invoke, otherwise the
+grant is unusable without out-of-band knowledge of the agent's name. That was
+observed live — the allowlisted identity only saw the agent because of this
+change.
+
+The upstream E2E test still passes here, because its fixture agent is not a
+channel member and the divergence only affects channel-member agents the viewer
+does not manage. Passing CI therefore does **not** mean upstream agrees with
+this behaviour, and the change must not ride into an upstream PR unflagged. It
+is excluded from the upstream series and kept fork-only until a maintainer
+decides. If it is ever proposed upstream it needs its own PR, a rationale
+referencing #2149, and coverage for the channel-member case that the current
+test leaves open.
 
 ## Inherited ACP host state must not reach the adapter (2026-07-27 finding)
 

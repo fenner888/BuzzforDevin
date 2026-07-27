@@ -88,6 +88,8 @@ Recorded so none of these is lost between passes. Details and evidence live in
 | --- | --- | --- |
 | Profile Edit opened the definition editor for definition-linked agents, so an allowlist change never reached the instance the runtime enforces | fixed (`resolveProfileEditTarget`) | Owner believes access was granted or revoked when the live agent's policy never changed |
 | Agent directory discovery queried kind:10100 instead of kind:30177 | fixed | An allowlisted identity never sees the agent in autocomplete |
+| Unsupported `respond_to` modes broke the whole directory | fixed | One agent publishing `nobody` made every agent disappear from discovery |
+| Allowlisted-agent autocomplete diverges from upstream #2149 | fork-only, deliberate | Excluded from the upstream series; needs a maintainer decision before it is proposed |
 | Instance projection republished a retained allowlist under non-allowlist modes | fixed (`agent_event_content`) | Revoked pubkeys stay publicly readable on the relay |
 | Inherited `ACP_BACKEND` reached the Devin adapter | fixed (`scrub_env_vars`) | Every Devin turn fails with "ACP host has not authenticated" despite a valid login |
 | Revocation is not enforced until the agent restarts | open — product decision | A revoked identity keeps full access for an unbounded window |

@@ -520,10 +520,17 @@ pub fn managed_agents_from_events(events: &[Event]) -> Value {
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .unwrap_or(&npub);
+            // Only the modes `RespondTo` can represent may be projected. The
+            // harness also supports `nobody`, but the desktop enum deliberately
+            // omits it, so emitting it here would fail deserialization for the
+            // WHOLE directory response — one agent publishing an unsupported
+            // mode would hide every other agent. An unrepresentable mode
+            // becomes absent, which every eligibility check treats as
+            // not-invocable, so the projection degrades closed.
             let respond_to = object
                 .get("respond_to")
                 .and_then(Value::as_str)
-                .filter(|mode| matches!(*mode, "owner-only" | "allowlist" | "anyone" | "nobody"));
+                .filter(|mode| matches!(*mode, "owner-only" | "allowlist" | "anyone"));
 
             let mut respond_to_allowlist = Vec::new();
             if let Some(values) = object.get("respond_to_allowlist").and_then(Value::as_array) {
@@ -1054,6 +1061,45 @@ mod tests {
             !v.to_string().contains("SECRET"),
             "the directory projection must remain an explicit public-field allowlist"
         );
+    }
+
+    /// One agent publishing a mode the desktop enum cannot represent must not
+    /// take down the entire directory. `respond_to` deserializes into
+    /// `RespondTo`, which has no `nobody` variant, so projecting that string
+    /// would fail the whole `Vec<RelayAgentInfo>` and hide every other agent.
+    #[test]
+    fn managed_agents_unsupported_mode_does_not_break_other_entries() {
+        let good_pubkey = "02".repeat(32);
+        let nobody_pubkey = "03".repeat(32);
+        let good = ev(
+            30177,
+            r#"{"name":"Good","respond_to":"owner-only"}"#,
+            vec![vec!["d", &good_pubkey]],
+        );
+        let nobody = ev(
+            30177,
+            r#"{"name":"Nope","respond_to":"nobody"}"#,
+            vec![vec!["d", &nobody_pubkey]],
+        );
+        let garbage = ev(
+            30177,
+            r#"{"name":"Junk","respond_to":"not-a-mode"}"#,
+            vec![vec!["d", &"04".repeat(32)]],
+        );
+
+        let v = managed_agents_from_events(&[good, nobody, garbage]);
+        let parsed: Vec<crate::managed_agents::RelayAgentInfo> =
+            serde_json::from_value(v.get("agents").cloned().unwrap())
+                .expect("an unsupported mode must not fail the whole directory");
+
+        assert_eq!(parsed.len(), 3, "every entry survives");
+        assert_eq!(
+            parsed[0].respond_to,
+            Some(crate::managed_agents::RespondTo::OwnerOnly)
+        );
+        // Unrepresentable modes degrade closed: absent, never invocable.
+        assert_eq!(parsed[1].respond_to, None);
+        assert_eq!(parsed[2].respond_to, None);
     }
 
     #[test]
