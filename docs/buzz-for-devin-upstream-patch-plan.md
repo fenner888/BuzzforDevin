@@ -1,8 +1,8 @@
 # Buzz for Devin upstream patch plan
 
 This document separates generally useful Buzz changes from community-fork
-distribution work. It is a preparation plan only: no commits, branches, pushes,
-tags, or pull requests are created by these instructions.
+distribution work. The generic runtime series is prepared locally; it does not
+authorize a push, tag, pull request, or release.
 
 ## Patch 1: catalog-driven runtime capabilities
 
@@ -192,8 +192,8 @@ The previous complete tree at `c2a4ee711e48` passed:
   `rust-unic`. No failed advisory result is represented as green.
 
 This proves the reviewed change set integrates with public upstream as of
-`871a3b377234` and passes the complete `just ci` gate there; it does not create
-a branch, commit series, or pull request. The gate must still be repeated on
+`871a3b377234` and passed the complete `just ci` gate there. A later refresh
+and local commit series is recorded below. The gate must still be repeated on
 the immutable candidate immediately before approval because upstream can
 continue advancing.
 
@@ -243,6 +243,39 @@ once in the main timeline with no permission prompt, thread, or duplicate.
 Devin still uses its default permission mode; Buzz does not silently persist
 approval or select bypass mode.
 
+## Prepared public-upstream series
+
+On 2026-07-26, the generic patch was refreshed onto public `block/buzz`
+`63c62fcf3eb5321262e8b7c4e299d110de330884` and committed only to the local
+branch `agent/upstream-native-devin-acp`:
+
+- `e36a002b` — `feat(desktop): add native Devin ACP runtime`
+- `a58835d9` — `feat(acp): mediate runtime permissions through owners`
+
+The series contains no fork product name, bundle identity, installer, signing
+workflow, publication configuration, dependency manifest, or lockfile change.
+It preserves upstream's modular runtime architecture and keeps
+`KnownAcpRuntime` as the single capability authority. The white-background
+Devin mark is the only new runtime asset.
+
+Validation on the committed series passed:
+
+- all 614 `buzz-acp` unit tests and all 9 pool-lifecycle integration tests;
+- all 1,811 Tauri library tests, with 14 real-Keychain/infrastructure tests
+  intentionally ignored, plus all 3 mixer diagnostics;
+- all 3,642 desktop frontend tests;
+- desktop TypeScript, Biome, file-size, text-size, and pubkey guards;
+- root and Tauri formatting;
+- strict `buzz-acp` and complete Tauri Clippy with warnings denied;
+- focused Devin catalog, normalization, readiness, launch-policy, and
+  process-tree tests; and
+- clean diff, merge-marker, fork-branding, and dependency-file scope checks.
+
+The disposable integration worktree was removed after validation to recover
+disk space. The branch and both commits remain in the repository and can be
+recreated as a worktree without changing the fork development branch. Nothing
+was pushed and no pull request was opened.
+
 ## Remaining upstream prerequisites
 
 - Complete the live two-context authorization and isolation matrix.
@@ -255,7 +288,7 @@ approval or select bypass mode.
   maintenance advisories. Also retain the Apple Silicon-scoped result, which
   excludes GTK3 and `proc-macro-error` but still fails on `audiopus_sys`,
   `mach`, and `rust-unic`.
-- Re-fetch and review the final diff against `block/buzz` immediately before
-  creating commits, because upstream can advance after this audit.
-- Obtain explicit approval before committing, pushing, or opening a pull
-  request.
+- Re-fetch/rebase and review the two-commit series against `block/buzz`
+  immediately before submission, because upstream can advance after this
+  audit.
+- Obtain explicit approval before pushing or opening a pull request.

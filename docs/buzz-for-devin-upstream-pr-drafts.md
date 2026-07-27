@@ -1,7 +1,8 @@
 # Buzz for Devin upstream pull-request drafts
 
-These are review drafts only. They do not authorize commits, pushes, branches,
-or pull requests. Rebase each proposal on current `block/buzz`, resolve the
+These are review drafts only. The generic implementation is locally committed
+on `agent/upstream-native-devin-acp`, but nothing has been pushed and no pull
+request has been opened. Rebase the series on current `block/buzz`, resolve
 documented drift, and replace every evidence placeholder before submission.
 
 ## PR 1: catalog-driven native runtime capabilities

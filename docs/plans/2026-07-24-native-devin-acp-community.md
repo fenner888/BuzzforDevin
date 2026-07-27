@@ -408,9 +408,12 @@ matrix remains open and is defined in
 - Publish a clear source-build installer and uninstall path.
 
 Status: source-build identity isolation plus recoverable macOS build, install,
-upgrade, rollback, and uninstall scripts are implemented. Clean-machine proof,
-immutable tagging, signing, notarization, updater setup, and publication remain
-open. The current security and release audit is recorded in
+upgrade, rollback, and uninstall scripts are implemented. The generic native
+runtime and owner-consent work is separated from fork branding in two local
+commits based on public upstream `63c62fcf3eb5`; no push or pull request has
+been made. Clean-machine proof, immutable tagging, signing, notarization,
+updater setup, upstream submission, and publication remain open. The current
+security and release audit is recorded in
 [the security review](../buzz-for-devin-security-review.md).
 
 ### Phase 6: Optional cloud capabilities

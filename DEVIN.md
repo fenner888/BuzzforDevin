@@ -94,8 +94,11 @@ top-level DM, a cold probe reached ACP in about 2.4 seconds and completed in
 completed in 4.047 seconds. Each produced exactly one requested reply in the
 main DM timeline, with the white-background Devin avatar and no thread.
 
-No MCP configuration or credentials were inspected or changed. Multi-user
-isolation, signed release packaging, and upstream review remain in progress.
+No MCP configuration or credentials were inspected or changed. The generic
+runtime and permission changes are now separated into a locally committed,
+public-upstream-compatible series on `agent/upstream-native-devin-acp`;
+submission and upstream review have not begun. Multi-user isolation and signed
+release packaging remain in progress.
 Cognition's signed-in CLI usage surface has shown nonzero usage attributed to
 the locally authenticated user after the official-CLI smoke path; no
 credentials were inspected.

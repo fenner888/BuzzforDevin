@@ -202,10 +202,10 @@ signing.
 
 ## Local validation snapshot
 
-This is development evidence, not release sign-off. The current detached
-integration worktree is based on public upstream commit `871a3b377234` plus
-the reviewed, uncommitted Buzz for Devin patch. It is not an immutable release
-candidate.
+This is development evidence, not release sign-off. The latest generic
+integration series is locally committed on `agent/upstream-native-devin-acp`
+at `a58835d9`, based on public upstream commit `63c62fcf3eb5`. It is not an
+immutable release candidate and has not been pushed or submitted.
 
 The following complete gates passed on 2026-07-25 against the then-current
 upstream base; the 2026-07-26 refresh evidence is recorded below. After the
@@ -305,6 +305,16 @@ That includes 3,543 desktop frontend tests, 1,734 Tauri library tests with 14
 intentional external/real-Keychain ignores, all 3 mixer diagnostics, and 685
 mobile tests with one intentional skip.
 
+Public upstream subsequently advanced to `63c62fcf3eb5`. The generic runtime
+and permission changes were adapted to that architecture and committed locally
+as `e36a002b` and `a58835d9`. The final series has a clean worktree and scope
+audit and contains no fork branding, distribution, signing, dependency
+manifest, or lockfile changes. All 614 `buzz-acp` unit tests, 9 lifecycle
+integration tests, 1,811 Tauri library tests (14 intentional ignores), 3 mixer
+diagnostics, and 3,642 desktop frontend tests pass. TypeScript, frontend
+source guards, Rust formatting, and strict Clippy for both `buzz-acp` and the
+complete Tauri crate also pass.
+
 On 2026-07-26, `pnpm audit --audit-level=low` was rerun against the current
 lockfile and reported no known vulnerabilities. A high-confidence scan of
 every staged changed file found no credential-shaped literals, and
@@ -392,8 +402,10 @@ could contain account context.
 - Follow the documented
   [upstream patch plan](buzz-for-devin-upstream-patch-plan.md) so generic
   runtime changes remain separate from fork branding and distribution work.
+  The local two-commit series now satisfies this separation; rebase and
+  submission review remain open.
 - Complete every
   [release checklist](buzz-for-devin-release-checklist.md) gate before
   publication.
-- Obtain explicit approval before committing, pushing, tagging, opening a pull
-  request, signing, notarizing, publishing, or creating a public community.
+- Obtain explicit approval before pushing, tagging, opening a pull request,
+  signing, notarizing, publishing, or creating a public community.
