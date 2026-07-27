@@ -72,7 +72,7 @@ attribution has not yet been confirmed in Cognition's dashboard.
 | A cannot invoke agent B under owner-only | not run | Live cross-owner denial remains open |
 | Explicitly allowlisted B can invoke agent A | pass | 2026-07-27: B appeared in B's mention list via the kind:30177 directory, B's channel mention passed the inbound gate, and the turn published one reply in 6.4s |
 | Unlisted identity remains blocked | not run | Only the one allowlisted identity was exercised |
-| Removing B from the allowlist blocks B again | partial | Record, kind:30177 projection, and spawn env all returned to `owner-only` with no allowlist variable — but only after a manual restart. B did not re-attempt an invocation, so the denial is inferred from the enforced spawn environment rather than observed |
+| Removing B from the allowlist blocks B again | pass | 2026-07-27: after revoking and restarting, B attempted an invocation and was denied. Record, kind:30177 projection, and spawn env had all returned to `owner-only` with no allowlist variable. Two caveats: the denial only holds after a restart, and revoking on the instance left the definition still allowlisting B until that was cleared separately |
 | Allowlisting does not admit external direct messages | not run | Live DM boundary test remains open |
 | Agent A cannot read workspace B's marker | not run | B disposable workspace remains open |
 | Agent B cannot read workspace A's marker | not run | B disposable workspace remains open |
@@ -91,6 +91,7 @@ Recorded so none of these is lost between passes. Details and evidence live in
 | Instance projection republished a retained allowlist under non-allowlist modes | fixed (`agent_event_content`) | Revoked pubkeys stay publicly readable on the relay |
 | Inherited `ACP_BACKEND` reached the Devin adapter | fixed (`scrub_env_vars`) | Every Devin turn fails with "ACP host has not authenticated" despite a valid login |
 | Revocation is not enforced until the agent restarts | open — product decision | A revoked identity keeps full access for an unbounded window |
+| Revoking on an instance leaves its definition still allowlisting the identity | open | The next agent minted from that definition silently re-grants the revoked identity |
 | ~~`auth_probe_args` probes a credential store ACP mode ignores~~ | withdrawn | Not a defect. `devin auth status` reported "Not logged in" only because the probe inherited `ACP_BACKEND`; the readiness and discovery probes both pass `runtime.scrub_env_vars`, so the same scrub fix makes the probe accurate. With `ACP_BACKEND` unset the adapter does fall back to stored CLI credentials, so that store is the correct thing to probe and `devin auth login` is the correct remediation |
 
 ## macOS distribution

@@ -104,6 +104,28 @@ restart. A release must not claim prompt revocation, and the
 `RESTART REQUIRED` badge does not currently tell an owner that the previous
 policy is still being enforced — which is the part most likely to mislead.
 
+### Revoking access is a two-place operation (2026-07-27 finding)
+
+Revoking on the instance does not revoke on its definition. Both records hold
+an independent inbound-author policy, and each has its own editor, so an owner
+who removes an identity from the agent they can see leaves the definition
+untouched.
+
+Observed live. After the instance was set back to `owner-only` and the revoked
+identity was confirmed denied, the definition still held
+`respond_to: allowlist` with that identity, both in the local record and in its
+published kind:30175. Because the definition's behavior group is copied onto
+every newly minted instance, the next agent created from that definition would
+have silently re-granted the revoked identity access. Clearing the definition
+separately removed it from both the record and the published event, which also
+confirms `apply_persona_behavior` clears the list correctly for non-allowlist
+modes.
+
+This is the same two-record split that produced the routing defect above, seen
+from the other side. Revocation should either propagate to the definition or
+say plainly that it has not. Until then, treat revocation as incomplete until
+both the instance and its definition have been checked.
+
 ### Non-allowlist modes republish a stale allowlist (2026-07-27 finding)
 
 The definition write path clears the allowlist whenever the mode is not
