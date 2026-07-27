@@ -1104,10 +1104,11 @@ fn discover_acp_runtime_phase1(runtime: &'static KnownAcpRuntime) -> PartialEntr
         .and_then(find_command)
         .map(|p| p.display().to_string());
 
-    let default_args = command
-        .as_deref()
-        .map(|cmd| normalize_agent_args(cmd, Vec::new()))
-        .unwrap_or_default();
+    let default_args = runtime
+        .default_args
+        .iter()
+        .map(|arg| (*arg).to_string())
+        .collect();
 
     let can_auto_install = !runtime.cli_install_commands_for_os().is_empty()
         || !runtime.adapter_install_commands.is_empty();

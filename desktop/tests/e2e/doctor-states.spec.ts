@@ -15,6 +15,7 @@ const SHOTS = "test-results/screenshots-doctor";
 const GOOSE_AVAILABLE = {
   id: "goose",
   label: "Goose",
+  sort_priority: 10,
   avatar_url: "",
   availability: "available",
   command: "goose",
@@ -34,6 +35,7 @@ const GOOSE_AVAILABLE = {
 const BUZZ_AGENT_AVAILABLE = {
   id: "buzz-agent",
   label: "Buzz Agent",
+  sort_priority: 0,
   avatar_url: "",
   availability: "available",
   command: "buzz-agent",
@@ -55,6 +57,7 @@ const BUZZ_AGENT_AVAILABLE = {
 const CLAUDE_AVAILABLE_LOGGED_IN = {
   id: "claude",
   label: "Claude Code",
+  sort_priority: 30,
   avatar_url: "",
   availability: "available",
   command: "claude-agent-acp",
@@ -77,6 +80,7 @@ const CLAUDE_AVAILABLE_LOGGED_IN = {
 const CODEX_NOT_INSTALLED = {
   id: "codex",
   label: "Codex",
+  sort_priority: 40,
   avatar_url: "",
   availability: "not_installed",
   command: null,
