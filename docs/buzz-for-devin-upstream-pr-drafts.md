@@ -1,9 +1,12 @@
 # Buzz for Devin upstream pull-request drafts
 
-These are review drafts only. The generic implementation is locally committed
-on `agent/upstream-native-devin-acp`, but nothing has been pushed and no pull
-request has been opened. Rebase the series on current `block/buzz`, resolve
-documented drift, and replace every evidence placeholder before submission.
+These are review-boundary drafts. The generic implementation is committed on
+`agent/upstream-native-devin-acp` and submitted as draft
+[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). The current
+two-commit draft combines the catalog/native-runtime work and the
+owner-permission work while keeping fork branding and distribution out. The
+smaller boundaries below remain available if upstream reviewers request a
+split.
 
 ## PR 1: catalog-driven native runtime capabilities
 

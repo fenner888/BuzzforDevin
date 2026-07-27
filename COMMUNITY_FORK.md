@@ -11,8 +11,10 @@ their own authenticated Devin agents.
 - This is not an official Cognition release.
 - Native Devin runtime support is implemented and covered by focused and
   regression tests.
-- Local proof is complete. Release hardening is in progress; multi-user
-  isolation, signed packaging, and upstream review are not yet complete.
+- Local proof is complete. A second macOS-user context has also proven its own
+  isolated identity, Nest, authenticated Devin runtime, reply path, and process
+  cleanup. The remaining live authorization/workspace matrix, notarized
+  packaging, and upstream review are not yet complete.
 - No public release is currently represented as production ready.
 
 ## Integration Boundary

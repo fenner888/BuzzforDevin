@@ -389,8 +389,13 @@ the main timeline.
 - Confirm one member cannot access another member's workspace or credentials.
 
 Status: automated author-gate coverage passes for owner-only, allowlist,
-sibling, stranger, and fail-closed direct-message cases. The live two-context
-matrix remains open and is defined in
+sibling, stranger, and fail-closed direct-message cases. A second macOS-user
+context has created its own Buzz identity and private Nest, detected its own
+authenticated Devin CLI, launched independent runtime processes, published an
+owned DM reply, and exited without leaving those processes behind. This is
+partial live evidence, not completion of the matrix. Cross-owner denial,
+allowlist and revocation, direct-message admission, workspace-marker
+boundaries, restart, and account attribution remain open and are defined in
 [the multi-user validation runbook](../buzz-for-devin-multi-user-validation.md).
 
 ### Phase 4: Community beta
@@ -409,11 +414,13 @@ matrix remains open and is defined in
 
 Status: source-build identity isolation plus recoverable macOS build, install,
 upgrade, rollback, and uninstall scripts are implemented. The generic native
-runtime and owner-consent work is separated from fork branding in two local
-commits based on public upstream `63c62fcf3eb5`; no push or pull request has
-been made. Clean-machine proof, immutable tagging, signing, notarization,
-updater setup, upstream submission, and publication remain open. The current
-security and release audit is recorded in
+runtime and owner-consent work is separated from fork branding in two commits
+and submitted as draft
+[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). A reviewed
+refresh based on public upstream `7fc0cc82` is now the draft head; upstream
+review remains open. Clean-machine proof, immutable tagging, notarization,
+updater setup, and publication remain open. The current security and release
+audit is recorded in
 [the security review](../buzz-for-devin-security-review.md).
 
 ### Phase 6: Optional cloud capabilities

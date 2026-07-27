@@ -95,10 +95,15 @@ completed in 4.047 seconds. Each produced exactly one requested reply in the
 main DM timeline, with the white-background Devin avatar and no thread.
 
 No MCP configuration or credentials were inspected or changed. The generic
-runtime and permission changes are now separated into a locally committed,
-public-upstream-compatible series on `agent/upstream-native-devin-acp`;
-submission and upstream review have not begun. Multi-user isolation and signed
-release packaging remain in progress.
+runtime and permission changes are separated into a two-commit,
+public-upstream-compatible series on `agent/upstream-native-devin-acp` and
+submitted as draft
+[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). The series has
+been refreshed onto current public upstream and pushed to that draft; upstream
+review remains open. A second macOS-user context proved its own isolated Buzz
+identity, Nest, authenticated Devin runtime, reply path, and process cleanup.
+The remaining cross-owner, allowlist, workspace-marker, restart, and
+account-attribution rows plus signed release packaging remain in progress.
 Cognition's signed-in CLI usage surface has shown nonzero usage attributed to
 the locally authenticated user after the official-CLI smoke path; no
 credentials were inspected.

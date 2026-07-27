@@ -245,12 +245,12 @@ approval or select bypass mode.
 
 ## Prepared public-upstream series
 
-On 2026-07-26, the generic patch was refreshed onto public `block/buzz`
-`63c62fcf3eb5321262e8b7c4e299d110de330884` and committed only to the local
-branch `agent/upstream-native-devin-acp`:
+On 2026-07-27, the generic patch was refreshed onto public `block/buzz`
+`7fc0cc82db4d9dced9c258bbe8b530164a832a77` on branch
+`agent/upstream-native-devin-acp`:
 
-- `26ca733c` — `feat(desktop): add native Devin ACP runtime`
-- `fff496e6` — `feat(acp): mediate runtime permissions through owners`
+- `c4b94ebc` — `feat(desktop): add native Devin ACP runtime`
+- `1387fbc4` — `feat(acp): mediate runtime permissions through owners`
 
 The series contains no fork product name, bundle identity, installer, signing
 workflow, publication configuration, dependency manifest, or lockfile change.
@@ -261,22 +261,23 @@ Devin mark is the only new runtime asset.
 Validation on the committed series passed:
 
 - all 614 `buzz-acp` unit tests and all 9 pool-lifecycle integration tests;
-- all 1,811 Tauri library tests, with 14 real-Keychain/infrastructure tests
+- all 1,812 Tauri library tests, with 14 real-Keychain/infrastructure tests
   intentionally ignored, plus all 3 mixer diagnostics;
-- all 3,642 desktop frontend tests;
+- all 3,644 desktop frontend tests;
+- all 21 onboarding runtime-default Playwright tests;
 - desktop TypeScript, Biome, file-size, text-size, and pubkey guards;
 - root and Tauri formatting;
 - strict `buzz-acp` and complete Tauri Clippy with warnings denied;
 - focused Devin catalog, normalization, readiness, launch-policy, and
   process-tree tests; and
-- clean diff, merge-marker, fork-branding, and dependency-file scope checks.
+- clean diff, merge-marker, fork-branding, dependency-file, secret-pattern,
+  and Rust dependency-policy scope checks.
 
-The disposable integration worktree was removed after validation to recover
-disk space. The branch and both commits remain in the repository and can be
-recreated as a worktree without changing the fork development branch. The
-series was pushed to the fork and opened as draft
+The branch remains isolated from the fork development branch. The refreshed
+series was pushed to the fork and is the head of draft
 [`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072). Its DCO check
-passes; review and upstream acceptance remain open.
+plus Semgrep OSS and zizmor checks pass; review and upstream acceptance remain
+open.
 
 ## Remaining upstream prerequisites
 

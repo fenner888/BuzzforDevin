@@ -202,11 +202,19 @@ signing.
 
 ## Local validation snapshot
 
-This is development evidence, not release sign-off. The latest generic
-integration series is committed on `agent/upstream-native-devin-acp` at
-`fff496e6`, based on public upstream commit `63c62fcf3eb5`. It is not an
-immutable release candidate. The series is submitted only as draft
-[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072).
+This is development evidence, not release sign-off. The generic integration
+series is submitted only as draft
+[`block/buzz` PR #3072](https://github.com/block/buzz/pull/3072); it is not an
+immutable release candidate. The prior draft head was `fff496e6`, based on
+public upstream commit `63c62fcf3eb5`.
+
+On 2026-07-27 the series was refreshed locally onto public upstream
+`7fc0cc82db4d9dced9c258bbe8b530164a832a77` as two generic commits,
+`c4b94ebc` and `1387fbc4`. The refreshed patch preserves upstream's restored
+Goose and Buzz Agent onboarding entries and keeps onboarding visibility,
+ordering, model capability, runtime icons, launch defaults, and
+authentication policy projected from Rust `KnownAcpRuntime` rather than a
+duplicate TypeScript table. It is now the draft PR head.
 
 The following complete gates passed on 2026-07-25 against the then-current
 upstream base; the 2026-07-26 refresh evidence is recorded below. After the
@@ -274,6 +282,17 @@ development-tree `just ci` also passed in full on 2026-07-26:
   appeared once in the main timeline with no permission prompt, thread, or
   duplicate. Buzz did not auto-approve a request or select a persistent or
   bypass grant.
+- On 2026-07-27, a second macOS-user context created a new Buzz identity and a
+  private `~/.buzz-for-devin` nest owned only by that user. The first context's
+  nest timestamp did not change. Onboarding reported the official Devin CLI
+  authenticated and ready, rendered the white-background Devin icon, retained
+  Devin as the default harness with `Default model`, and launched independent
+  `buzz-acp` and `devin acp` processes. A newly owned agent published the exact
+  DM reply `MFENNER_CONTEXT_OK`. Normal app quit removed the desktop process
+  and all observed harness and Devin children. This proves the second
+  context's own invocation and process isolation; cross-owner denial,
+  allowlisting, workspace-marker boundaries, restart, and Cognition
+  usage-attribution rows remain open.
 - No MCP configuration or credential material was inspected or changed.
 
 The complete patch was applied to a detached worktree at public `block/buzz`
@@ -315,6 +334,19 @@ integration tests, 1,811 Tauri library tests (14 intentional ignores), 3 mixer
 diagnostics, and 3,642 desktop frontend tests pass. TypeScript, frontend
 source guards, Rust formatting, and strict Clippy for both `buzz-acp` and the
 complete Tauri crate also pass.
+
+Public upstream then advanced to `7fc0cc82db4d9dced9c258bbe8b530164a832a77`.
+The locally refreshed two-commit series passes all 614 `buzz-acp` unit tests,
+all 9 lifecycle tests, 1,812 Tauri library tests with 14 intentional
+external/real-Keychain ignores, all 3,644 desktop frontend tests, and all 21
+tests in `onboarding-agent-defaults.spec.ts`. The frontend production build,
+E2E build, Biome and source guards, Rust formatting, and strict Clippy for
+`buzz-acp` and the full Tauri crate also pass. `cargo deny check` exits
+successfully for the refreshed upstream dependency graph while still reporting
+its inherited source and yanked-version warnings; the patch changes no
+dependency manifest or lockfile. A redacted changed-file secret scan found no
+credential-shaped material. Final review removed one production `expect()` from
+avatar normalization; the safe branch and its focused regression test pass.
 
 On 2026-07-26, `pnpm audit --audit-level=low` was rerun against the current
 lockfile and reported no known vulnerabilities. A high-confidence scan of
@@ -390,7 +422,8 @@ could contain account context.
 ## Open release gates
 
 - Complete the live two-context authorization, workspace, restart, and usage
-  attribution matrix.
+  attribution matrix. Context B's own identity, Nest, authenticated runtime,
+  owned reply, and quit cleanup are proven; the cross-context rows remain open.
 - Perform a clean-machine install and first-launch test.
 - Export the validated Developer ID certificate to the protected GitHub
   environment and configure Apple notarization credentials. Local Developer ID
@@ -403,8 +436,8 @@ could contain account context.
 - Follow the documented
   [upstream patch plan](buzz-for-devin-upstream-patch-plan.md) so generic
   runtime changes remain separate from fork branding and distribution work.
-  The local two-commit series now satisfies this separation; rebase and
-  submission review remain open.
+  The refreshed two-commit series satisfies this separation and is submitted
+  as a draft; upstream review and merge remain open.
 - Complete every
   [release checklist](buzz-for-devin-release-checklist.md) gate before
   publication.
