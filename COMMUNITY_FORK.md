@@ -11,8 +11,8 @@ their own authenticated Devin agents.
 - This is not an official Cognition release.
 - Native Devin runtime support is implemented and covered by focused and
   regression tests.
-- Local proof and release hardening are in progress; multi-user isolation,
-  signed packaging, and upstream review are not yet complete.
+- Local proof is complete. Release hardening is in progress; multi-user
+  isolation, signed packaging, and upstream review are not yet complete.
 - No public release is currently represented as production ready.
 
 ## Integration Boundary

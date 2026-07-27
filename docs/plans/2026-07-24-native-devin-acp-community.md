@@ -344,7 +344,7 @@ Status: implemented and validated in the development build.
 - Confirm restart and session behavior.
 - Confirm usage is charged to the authenticated user's account.
 
-Status: in progress. CLI discovery, authentication readiness, one-worker ACP
+Status: complete. CLI discovery, authentication readiness, one-worker ACP
 startup, session creation, safe tool activity, disposable-repository writes,
 restart behavior, canonicalized selected-workspace mapping, and signed-in
 Cognition CLI usage attribution are proven. Packaged sidecar selection,
@@ -354,10 +354,12 @@ published the exact requested reply through the packaged sibling Buzz CLI.
 After 45 seconds the exact turn was closed and the reply remained single. The
 newest rebuilt app also automatically restored the saved managed agent after a
 normal unlocked relaunch, and a real Restart reaped the old independently
-grouped Devin CLI before starting the replacement process tree. The remaining
-local checkpoint is installed cold/warm verification of the catalog-driven
-eager-start and bounded-silence policy described above. A later Welcome-thread
-test showed that Buzz displayed Devin's session/workspace approval choices but
+grouped Devin CLI before starting the replacement process tree. Installed
+cold/warm verification proved the catalog-driven eager-start and
+bounded-silence policy: the restored and restarted pools initialized before a
+message was sent, and consecutive top-level DM probes completed in about four
+seconds with one reply each in the main timeline. A later Welcome-thread test
+showed that Buzz displayed Devin's session/workspace approval choices but
 offered only **Allow once** and **Deny** actions, so ordinary
 `buzz messages send` publication prompted on every turn. Exact-option selection
 with live-request validation is now implemented and covered by the focused and
