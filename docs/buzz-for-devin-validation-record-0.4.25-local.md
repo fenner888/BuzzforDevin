@@ -66,18 +66,32 @@ attribution has not yet been confirmed in Cognition's dashboard.
 
 | Check | Result | Redacted observation |
 | --- | --- | --- |
-| A can invoke agent A | pass | Prior live owner invocation passed |
+| A can invoke agent A | pass | Prior live owner invocation passed; re-confirmed 2026-07-27 18:29 UTC |
 | B cannot invoke agent A under owner-only | not run | Live cross-owner denial remains open |
 | B can invoke agent B | pass | Exact DM reply `MFENNER_CONTEXT_OK` appeared |
 | A cannot invoke agent B under owner-only | not run | Live cross-owner denial remains open |
-| Explicitly allowlisted B can invoke agent A | not run | Live allowlist test remains open |
-| Unlisted identity remains blocked | not run | Live allowlist test remains open |
-| Removing B from the allowlist blocks B again | not run | Live allowlist test remains open |
+| Explicitly allowlisted B can invoke agent A | pass | 2026-07-27: B appeared in B's mention list via the kind:30177 directory, B's channel mention passed the inbound gate, and the turn published one reply in 6.4s |
+| Unlisted identity remains blocked | not run | Only the one allowlisted identity was exercised |
+| Removing B from the allowlist blocks B again | partial | Record, kind:30177 projection, and spawn env all returned to `owner-only` with no allowlist variable — but only after a manual restart. B did not re-attempt an invocation, so the denial is inferred from the enforced spawn environment rather than observed |
 | Allowlisting does not admit external direct messages | not run | Live DM boundary test remains open |
 | Agent A cannot read workspace B's marker | not run | B disposable workspace remains open |
 | Agent B cannot read workspace A's marker | not run | B disposable workspace remains open |
 | Both owned agents still work after restart | not run | A passed separately; the two-context row remains open |
 | No usage is attributed to the wrong Devin account | not run | Cognition dashboard confirmation remains open |
+
+## Defects found during this validation pass
+
+Recorded so none of these is lost between passes. Details and evidence live in
+[the security review](buzz-for-devin-security-review.md).
+
+| Defect | State | Effect if unfixed |
+| --- | --- | --- |
+| Profile Edit opened the definition editor for definition-linked agents, so an allowlist change never reached the instance the runtime enforces | fixed (`resolveProfileEditTarget`) | Owner believes access was granted or revoked when the live agent's policy never changed |
+| Agent directory discovery queried kind:10100 instead of kind:30177 | fixed | An allowlisted identity never sees the agent in autocomplete |
+| Instance projection republished a retained allowlist under non-allowlist modes | fixed (`agent_event_content`) | Revoked pubkeys stay publicly readable on the relay |
+| Inherited `ACP_BACKEND` reached the Devin adapter | fixed (`scrub_env_vars`) | Every Devin turn fails with "ACP host has not authenticated" despite a valid login |
+| Revocation is not enforced until the agent restarts | open — product decision | A revoked identity keeps full access for an unbounded window |
+| ~~`auth_probe_args` probes a credential store ACP mode ignores~~ | withdrawn | Not a defect. `devin auth status` reported "Not logged in" only because the probe inherited `ACP_BACKEND`; the readiness and discovery probes both pass `runtime.scrub_env_vars`, so the same scrub fix makes the probe accurate. With `ACP_BACKEND` unset the adapter does fall back to stored CLI credentials, so that store is the correct thing to probe and `devin auth login` is the correct remediation |
 
 ## macOS distribution
 

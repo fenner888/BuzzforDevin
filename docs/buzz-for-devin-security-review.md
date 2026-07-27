@@ -34,6 +34,125 @@ unlisted, stranger, direct-message, missing-metadata, and setup-listener
 fail-closed cases. Live proof with two independent identities is still
 required.
 
+### Which record the gate reads (2026-07-27 finding)
+
+The enforced policy is the **instance** record's `respond_to` /
+`respond_to_allowlist` pair. `build_respond_to_env` converts that pair into
+`BUZZ_ACP_RESPOND_TO` (and `BUZZ_ACP_RESPOND_TO_ALLOWLIST`) when the agent's
+child process is spawned. A definition's behavior group is a *template*: it is
+copied onto an instance only when a new instance is minted from it, and
+`update_persona` propagates only `display_name` and `avatar_url` to instances
+that already exist.
+
+An upstream routing defect made the two diverge silently. For a
+definition-linked agent, the profile panel's Edit action opened the
+**definition** editor, so the dialog displayed a definition-level allowlist
+while the running agent continued to enforce its instance policy. Observed
+live on `Devin Phase 2 Live`: the definition (kind `30175`,
+`d=ea752a17-…`) carried `allowlist` with one entry, the instance (kind
+`30177`, `d=1dcd8dfd…a506`) carried `owner-only` with none, and the running
+harness had `BUZZ_ACP_RESPOND_TO=owner-only` with no allowlist variable set.
+
+The failure mode is bidirectional and matters most for revocation: an owner
+who *removed* an identity from that dialog would believe access was revoked
+while the live agent kept honouring the original policy. Fixed by
+`resolveProfileEditTarget`, which routes an instance-backed profile to the
+instance editor so the displayed policy is the enforced one; definition
+editing remains available from the agent library's actions menu and from the
+instance editor's linked-definition hop. This routing is upstream code
+(`block/buzz` #1274, #1928) and is not fork-specific.
+
+### Revocation is not effective until the agent restarts (2026-07-27 finding)
+
+`build_respond_to_env` runs once, at spawn. A running harness therefore keeps
+enforcing the policy it was started with, and an inbound-author change only
+takes effect on the next start. Measured live while revoking one allowlisted
+identity:
+
+| Time (UTC) | Persisted record | Live harness environment |
+| --- | --- | --- |
+| 18:39:55 | `owner-only` | `allowlist` + revoked pubkey |
+| 18:42:35 | `owner-only` | `owner-only`, allowlist variable absent |
+
+For those two minutes and forty seconds the revoked identity retained full
+invocation access. The agent record had `auto_restart_on_config_change: true`,
+and no automatic restart occurred within that window; the UI surfaced a
+`RESTART REQUIRED` badge and waited. That is the documented behaviour rather
+than a malfunction — the setting restarts the agent "once it is idle and
+connected" — but the security consequence is what matters: the revocation
+window is bounded by agent idleness plus operator attention, not by the
+revoking action, and nothing about the badge communicates that the old policy
+is still being enforced meanwhile.
+
+Treat "removing an identity revokes access" as true only after a restart, and
+do not record that row as passing on the basis of the persisted record alone.
+
+**Disposition.** This is left unfixed in this pass, deliberately. The narrow
+change — treat an authorization *narrowing* as grounds for an immediate
+restart rather than waiting for idleness — is the wrong shape of fix: it makes
+policy correctness depend on process lifecycle, and it silently converts a
+permission edit into cancelled work in progress. The right fix is for the
+inbound-author gate to be evaluated per event against current policy instead
+of against a snapshot captured in the spawn environment, so revocation is
+effective the moment it is saved and no restart is implicated at all. That is
+an architectural change to `buzz-acp`'s policy plumbing, it is upstream-generic,
+and it warrants maintainer agreement rather than being bundled into a fix pass
+for an unrelated defect.
+
+Until then the honest statement is the one above: revocation is effective on
+restart. A release must not claim prompt revocation, and the
+`RESTART REQUIRED` badge does not currently tell an owner that the previous
+policy is still being enforced — which is the part most likely to mislead.
+
+### Non-allowlist modes republish a stale allowlist (2026-07-27 finding)
+
+The definition write path clears the allowlist whenever the mode is not
+`allowlist`, because "storing it for other modes would republish stale pubkeys
+the author didn't choose" (`apply_persona_behavior`). The instance write path
+does not. After revoking the one allowlisted identity, the instance record and
+its public kind:30177 projection both still carried that pubkey alongside
+`"respond_to":"owner-only"`.
+
+This is a disclosure and hygiene defect, not an access-control one. Spawn drops
+`BUZZ_ACP_RESPOND_TO_ALLOWLIST` for non-allowlist modes, and
+`relayAgentIsSharedWithUser` gates on `respondTo === "allowlist"` before it
+consults membership, so the stale entry grants nothing and does not restore
+the agent to the revoked identity's autocomplete. The residual harm is that a
+revoked association stays publicly readable on the relay. The instance path
+should match the definition path.
+
+## Inherited ACP host state must not reach the adapter (2026-07-27 finding)
+
+Cognition's own documentation frames Devin Desktop as an ACP *host* that
+launches third-party agents and injects environment into them (see
+<https://docs.devin.ai/desktop/acp>, "Enabling custom agents" and the
+`devin.acp.agentEnv.<agentName>` setting). `ACP_BACKEND=windsurf` is part of
+that host-side state: it tells a spawned `devin acp` that its host is Devin
+Desktop, and therefore that the host supplies credentials over ACP.
+
+When Buzz is the host, that claim is false. If the variable is inherited —
+for example because Buzz was launched from a terminal running inside Devin
+Desktop — the adapter announces "ACP host is the sole source of credentials.
+Local CLI credentials (env vars, on-disk REPL store) will NOT be used" and
+every turn fails with `-32000 ACP host has not authenticated`, even though
+`devin auth login` succeeded. With the variable absent the same binary reports
+"`ACP_BACKEND` not set. Will accept host credentials if provided, otherwise
+fall back to env vars and stored CLI credentials" and turns succeed.
+
+The same leak also corrupted readiness reporting: `devin auth status` returned
+"Not logged in" under contamination and "Logged in (via Devin)" without it.
+
+`ACP_BACKEND` is therefore scrubbed alongside `WINDSURF_API_KEY` in Devin's
+`scrub_env_vars`. That single list is consumed by process launch
+(`apply_runtime_env_policy`), the login/readiness probe, and runtime discovery,
+so one entry fixes invocation and readiness together. Verified in a packaged
+build: the desktop process carried `ACP_BACKEND` while the Devin harness it
+spawned did not.
+
+Buzz's own probing of `devin auth status` and remediation via `devin auth login`
+remain correct, because an uncontaminated adapter falls back to exactly that
+stored-credential path.
+
 ## Devin authentication boundary
 
 - Buzz probes readiness with `devin auth status`.
