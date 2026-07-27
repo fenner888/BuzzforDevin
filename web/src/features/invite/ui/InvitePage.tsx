@@ -1,5 +1,6 @@
 import buzzAppIcon from "@/assets/app-icon@3x.png";
 import { claimInviteInBrowser } from "@/features/invite/invite-api";
+import { BUZZ_APP_NAME, buzzAppDeepLink } from "@/shared/lib/app-identity";
 import {
   BUZZ_RELEASES_URL,
   type BuzzDownloadPlatform,
@@ -96,7 +97,7 @@ export function InvitePage({ code }: { code: string }) {
       const receipt = await acceptPolicy();
       const query = new URLSearchParams({ relay, code });
       if (receipt) query.set("policy_receipt", receipt);
-      window.location.href = `buzz://join?${query.toString()}`;
+      window.location.href = buzzAppDeepLink(`join?${query.toString()}`);
     } finally {
       setOpening(false);
     }
@@ -183,7 +184,11 @@ export function InvitePage({ code }: { code: string }) {
             className="h-12 w-12 overflow-hidden bg-black"
             style={{ borderRadius: "22.37%" }}
           >
-            <img alt="Buzz" className="h-full w-full" src={buzzAppIcon} />
+            <img
+              alt={BUZZ_APP_NAME}
+              className="h-full w-full"
+              src={buzzAppIcon}
+            />
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-black">
             You&apos;re invited to
@@ -231,9 +236,11 @@ export function InvitePage({ code }: { code: string }) {
                 }`}
               >
                 <a
-                  href={`buzz://join?relay=${encodeURIComponent(relay)}&code=${encodeURIComponent(code)}`}
+                  href={buzzAppDeepLink(
+                    `join?relay=${encodeURIComponent(relay)}&code=${encodeURIComponent(code)}`,
+                  )}
                 >
-                  Accept invite in Buzz
+                  Accept invite in {BUZZ_APP_NAME}
                 </a>
               </Button>
             ) : (
@@ -246,7 +253,7 @@ export function InvitePage({ code }: { code: string }) {
                 disabled={disabled}
                 onClick={openInvite}
               >
-                Accept invite in Buzz
+                Accept invite in {BUZZ_APP_NAME}
               </Button>
             )}
             {browserJoinError ? (

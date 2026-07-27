@@ -5,7 +5,7 @@ import {
   coalesceAgentAutocompleteCandidates,
   getMentionableAgentPubkeys,
   getSharedChannelIds,
-  isAgentIdentityInManagedList,
+  isAgentIdentityInEligibleSet,
   relayAgentIsSharedWithUser,
   shouldHideAgentFromMentions,
 } from "./agentAutocompleteEligibility.ts";
@@ -136,27 +136,34 @@ test("getMentionableAgentPubkeys: keeps managed agents and shared relay agents",
   assert.deepEqual(result, new Set([PUB_A, PUB_B, PUB_C]));
 });
 
-test("isAgentIdentityInManagedList: keeps people and only current managed agent identities", () => {
-  const managedAgentPubkeys = new Set([PUB_A]);
+test("isAgentIdentityInEligibleSet: keeps people and only eligible agent identities", () => {
+  const eligibleAgentPubkeys = new Set([PUB_A, PUB_C]);
 
   assert.equal(
-    isAgentIdentityInManagedList(
+    isAgentIdentityInEligibleSet(
       { isAgent: false, pubkey: PUB_B },
-      managedAgentPubkeys,
+      eligibleAgentPubkeys,
     ),
     true,
   );
   assert.equal(
-    isAgentIdentityInManagedList(
+    isAgentIdentityInEligibleSet(
       { isAgent: true, pubkey: PUB_A.toUpperCase() },
-      managedAgentPubkeys,
+      eligibleAgentPubkeys,
     ),
     true,
   );
   assert.equal(
-    isAgentIdentityInManagedList(
+    isAgentIdentityInEligibleSet(
+      { isAgent: true, pubkey: PUB_C },
+      eligibleAgentPubkeys,
+    ),
+    true,
+  );
+  assert.equal(
+    isAgentIdentityInEligibleSet(
       { isAgent: true, pubkey: PUB_B },
-      managedAgentPubkeys,
+      eligibleAgentPubkeys,
     ),
     false,
   );

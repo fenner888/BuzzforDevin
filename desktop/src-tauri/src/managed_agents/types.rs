@@ -476,7 +476,19 @@ pub struct ManagedAgentSummary {
     pub max_turn_duration_seconds: Option<u64>,
     pub parallelism: u32,
     pub system_prompt: Option<String>,
+    /// User/persona avatar snapshot persisted on the agent record.
     pub avatar_url: Option<String>,
+    /// App-local presentation mark derived from the effective runtime catalog.
+    pub runtime_icon_url: Option<String>,
+    /// Presentation-only fallback derived from the effective runtime catalog.
+    /// This is never persisted as a user-selected avatar.
+    pub runtime_avatar_url: Option<String>,
+    /// Superseded catalog defaults that the frontend must not prefer over the
+    /// current runtime avatar while a stopped agent's relay profile is stale.
+    pub runtime_superseded_avatar_urls: Vec<String>,
+    /// Whether Buzz can apply its configured model to this runtime. `None`
+    /// preserves the existing display for unknown/custom runtimes.
+    pub supports_buzz_model_config: Option<bool>,
     pub model: Option<String>,
     /// LLM inference provider, from the agent's pinned record snapshot.
     pub provider: Option<String>,
@@ -569,7 +581,14 @@ pub enum AuthStatus {
 pub struct AcpRuntimeCatalogEntry {
     pub id: String,
     pub label: String,
+    pub display_label: String,
+    pub sort_priority: u16,
+    pub onboarding_visible: bool,
+    pub icon_url: String,
+    pub icon_scale: f32,
     pub avatar_url: String,
+    pub superseded_avatar_urls: Vec<String>,
+    pub supports_buzz_model_config: bool,
     pub availability: AcpAvailabilityStatus,
     pub command: Option<String>,
     pub binary_path: Option<String>,

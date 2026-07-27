@@ -497,6 +497,53 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn validate_repos_dir_canonicalizes_parent_segments() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join(".buzz");
+        let selected = tmp.path().join("selected");
+        let decoy = tmp.path().join("decoy");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&selected).unwrap();
+        fs::create_dir_all(&decoy).unwrap();
+
+        let candidate = decoy.join("..").join("selected");
+        let resolved = validate_repos_dir(&root, candidate.to_str().unwrap()).unwrap();
+
+        assert_eq!(
+            resolved,
+            selected.canonicalize().unwrap(),
+            "parent segments must resolve before the selected workspace is used"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_repos_dir_canonicalizes_symlinks_and_rechecks_nest_ancestors() {
+        let tmp = tempfile::tempdir().unwrap();
+        let home = tmp.path().join("home");
+        let root = home.join(".buzz");
+        let selected = tmp.path().join("selected");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&selected).unwrap();
+
+        let selected_link = tmp.path().join("selected-link");
+        std::os::unix::fs::symlink(&selected, &selected_link).unwrap();
+        assert_eq!(
+            validate_repos_dir(&root, selected_link.to_str().unwrap()).unwrap(),
+            selected.canonicalize().unwrap(),
+            "a selected symlink must resolve to its real workspace target"
+        );
+
+        let ancestor_link = tmp.path().join("ancestor-link");
+        std::os::unix::fs::symlink(&home, &ancestor_link).unwrap();
+        assert!(
+            validate_repos_dir(&root, ancestor_link.to_str().unwrap()).is_err(),
+            "a symlink must not hide that its target is an ancestor of the nest"
+        );
+    }
+
     // ── persisted repos_dir dotfile ───────────────────────────────────────
 
     #[test]

@@ -9,6 +9,10 @@ fn main() {
     println!("cargo:rerun-if-env-changed=BUZZ_RELAY_HTTP");
     println!("cargo:rerun-if-env-changed=BUZZ_UPDATER_PUBLIC_KEY");
     println!("cargo:rerun-if-env-changed=BUZZ_UPDATER_ENDPOINT");
+    println!("cargo:rerun-if-env-changed=BUZZ_BUILD_KEYRING_SERVICE");
+    println!("cargo:rerun-if-env-changed=BUZZ_BUILD_DEEP_LINK_SCHEME");
+    println!("cargo:rerun-if-env-changed=BUZZ_BUILD_NEST_DIR");
+    println!("cargo:rerun-if-env-changed=BUZZ_BUILD_CLI_LINK_NAME");
     println!("cargo:rerun-if-env-changed=BUZZ_BUILD_BUZZ_AGENT_PROVIDER");
     println!("cargo:rerun-if-env-changed=BUZZ_BUILD_BUZZ_AGENT_MODEL");
     println!("cargo:rerun-if-env-changed=BUZZ_BUILD_AGENT_ENV");
@@ -24,6 +28,68 @@ fn main() {
 
     if let Ok(relay_http) = std::env::var("BUZZ_RELAY_HTTP") {
         println!("cargo:rustc-env=BUZZ_DESKTOP_BUILD_RELAY_HTTP={relay_http}");
+    }
+
+    if let Ok(service) = std::env::var("BUZZ_BUILD_KEYRING_SERVICE") {
+        let service = service.trim();
+        assert!(
+            !service.is_empty()
+                && service.len() <= 128
+                && service
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')),
+            "BUZZ_BUILD_KEYRING_SERVICE must be 1-128 ASCII letters, digits, '.', '_', or '-'"
+        );
+        println!("cargo:rustc-env=BUZZ_DESKTOP_BUILD_KEYRING_SERVICE={service}");
+    }
+
+    if let Ok(scheme) = std::env::var("BUZZ_BUILD_DEEP_LINK_SCHEME") {
+        let scheme = scheme.trim();
+        assert!(
+            !scheme.is_empty()
+                && scheme.len() <= 64
+                && scheme
+                    .bytes()
+                    .enumerate()
+                    .all(|(index, byte)| if index == 0 {
+                        byte.is_ascii_lowercase()
+                    } else {
+                        byte.is_ascii_lowercase()
+                            || byte.is_ascii_digit()
+                            || matches!(byte, b'+' | b'-' | b'.')
+                    }),
+            "BUZZ_BUILD_DEEP_LINK_SCHEME must be a lowercase RFC 3986 URI scheme"
+        );
+        println!("cargo:rustc-env=BUZZ_DESKTOP_BUILD_DEEP_LINK_SCHEME={scheme}");
+    }
+
+    if let Ok(nest_dir) = std::env::var("BUZZ_BUILD_NEST_DIR") {
+        let nest_dir = nest_dir.trim();
+        assert!(
+            nest_dir.starts_with('.')
+                && nest_dir.len() >= 2
+                && nest_dir.len() <= 64
+                && nest_dir.as_bytes()[1].is_ascii_alphanumeric()
+                && nest_dir
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')),
+            "BUZZ_BUILD_NEST_DIR must be a hidden directory basename of 2-64 ASCII letters, digits, '.', '_', or '-'"
+        );
+        println!("cargo:rustc-env=BUZZ_DESKTOP_BUILD_NEST_DIR={nest_dir}");
+    }
+
+    if let Ok(link_name) = std::env::var("BUZZ_BUILD_CLI_LINK_NAME") {
+        let link_name = link_name.trim();
+        assert!(
+            !link_name.is_empty()
+                && link_name.len() <= 64
+                && link_name.as_bytes()[0].is_ascii_alphanumeric()
+                && link_name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')),
+            "BUZZ_BUILD_CLI_LINK_NAME must be 1-64 ASCII letters, digits, '.', '_', or '-'"
+        );
+        println!("cargo:rustc-env=BUZZ_DESKTOP_BUILD_CLI_LINK_NAME={link_name}");
     }
 
     if let Ok(provider) = std::env::var("BUZZ_BUILD_BUZZ_AGENT_PROVIDER") {

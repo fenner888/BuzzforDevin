@@ -8,8 +8,8 @@ use crate::{
     managed_agents::{
         append_log_marker, known_acp_runtime, login_shell_path, managed_agent_log_path,
         missing_command_message, normalize_agent_args, open_log_file, resolve_command,
-        spawn_key_refusal, KnownAcpRuntime, ManagedAgentPairRuntime, ManagedAgentRecord,
-        ManagedAgentRuntimeKey, ManagedAgentSummary,
+        spawn_key_refusal, ManagedAgentPairRuntime, ManagedAgentRecord, ManagedAgentRuntimeKey,
+        ManagedAgentSummary,
     },
     util::now_iso,
 };
@@ -19,6 +19,16 @@ pub(in crate::managed_agents) use path::build_augmented_path;
 pub(crate) use path::compose_path_entries;
 pub(crate) use path::should_skip_claude_executable;
 pub(crate) use path::should_use_inherited;
+
+mod cli_config;
+pub(crate) use cli_config::configure_runtime_cli;
+mod env_policy;
+use env_policy::{
+    apply_runtime_env_policy, effective_idle_timeout, harness_model_for_runtime,
+    should_defer_agent_start,
+};
+mod presentation;
+use presentation::runtime_presentation_for_summary;
 
 mod stop;
 pub(crate) use stop::managed_agent_runtime_keys;
@@ -45,6 +55,7 @@ pub(crate) const KNOWN_AGENT_BINARIES: &[&str] = &[
     "claude_code_acp",
     "codex-acp",
     "codex_acp",
+    "devin",
     "goose",
     // buzz-dev-mcp's multicall personalities (rg, tree, buzz,
     // git-credential-nostr, git-sign-nostr) are short-lived per-tool-call
@@ -272,6 +283,10 @@ fn signal_process_group_or_leader(pid: u32, signal: i32, action: &str) -> Result
 
 #[cfg(unix)]
 pub(crate) fn terminate_process(pid: u32) -> Result<(), String> {
+    // Reap independently-grouped ACP descendants while their ownership can
+    // still be proven through the live harness ancestry.
+    sweep::terminate_owned_descendant_groups(pid);
+
     // Try graceful shutdown first (SIGTERM to the group).
     signal_process_group_or_leader(pid, libc::SIGTERM, "terminate")?;
 
@@ -853,15 +868,6 @@ pub(crate) fn collect_same_instance_orphans(
     std::collections::HashSet::new()
 }
 
-/// Binary names for the Buzz desktop/Tauri process. Used by dead-instance
-/// detection to confirm the owning desktop is still alive.
-const DESKTOP_BINARY_NAMES: &[&str] = &["Buzz", "buzz-desktop", "buzz_desktop"];
-
-/// Check if a process name matches a known Buzz desktop binary.
-fn is_desktop_binary(name: &str) -> bool {
-    DESKTOP_BINARY_NAMES.contains(&name)
-}
-
 /// Check whether `buf` contains `id` as a complete identifier — not as a
 /// prefix of a longer dotted name. The identifier appears in the Tauri config
 /// JSON as `"identifier":"xyz.block.buzz.app.dev"` and in environment entries
@@ -987,7 +993,7 @@ fn desktop_is_alive_for_instance(instance_id: &str) -> bool {
             continue;
         }
         let name = String::from_utf8_lossy(&name_buf[..len as usize]);
-        if !is_desktop_binary(&name) {
+        if !sweep::is_desktop_binary(&name) {
             continue;
         }
         // Verify UID.
@@ -1049,7 +1055,7 @@ fn desktop_is_alive_for_instance(instance_id: &str) -> bool {
         let Ok(comm) = std::fs::read_to_string(format!("/proc/{pid}/comm")) else {
             continue;
         };
-        if !is_desktop_binary(comm.trim()) {
+        if !sweep::is_desktop_binary(comm.trim()) {
             continue;
         }
         // Check cmdline for the identifier with boundary anchoring.
@@ -1484,6 +1490,7 @@ pub fn build_managed_agent_summary(
         .and_then(|r| r.mcp_command)
         .unwrap_or("")
         .to_string();
+    let runtime_presentation = runtime_presentation_for_summary(&effective_command);
 
     Ok(ManagedAgentSummary {
         pubkey: record.pubkey.clone(),
@@ -1502,6 +1509,10 @@ pub fn build_managed_agent_summary(
         parallelism: record.parallelism,
         system_prompt: record.system_prompt.clone(),
         avatar_url: record.avatar_url.clone(),
+        runtime_icon_url: runtime_presentation.icon_url,
+        runtime_avatar_url: runtime_presentation.avatar_url,
+        runtime_superseded_avatar_urls: runtime_presentation.superseded_avatar_urls,
+        supports_buzz_model_config: runtime_presentation.supports_buzz_model_config,
         model: record.model.clone(),
         provider: record.provider.clone(),
         persona_out_of_date,
@@ -1594,30 +1605,6 @@ pub(crate) fn build_respond_to_env(
     Ok((set, remove))
 }
 
-pub(crate) fn configure_runtime_cli(
-    command: &mut std::process::Command,
-    runtime: Option<&KnownAcpRuntime>,
-) {
-    let Some(runtime) = runtime else {
-        return;
-    };
-    if runtime.id != "claude" {
-        return;
-    }
-    if let Some(cli_path) = runtime.underlying_cli.and_then(resolve_command) {
-        // On Windows, `.cmd` and `.bat` files are batch shims — they cannot be
-        // passed directly to `CreateProcess` and cause EINVAL when the Claude
-        // adapter tries to spawn them (issue #2397). Skip setting
-        // `CLAUDE_CODE_EXECUTABLE` for shim paths so the adapter falls back to
-        // its own PATH lookup and finds the real binary instead.
-        // Non-Windows: `.cmd`/`.bat` are valid executables and must be assigned.
-        if should_skip_claude_executable(&cli_path, cfg!(windows)) {
-            return;
-        }
-        command.env("CLAUDE_CODE_EXECUTABLE", cli_path);
-    }
-}
-
 /// Spawn an agent process without holding any locks on records or runtimes.
 /// Returns the child process and log path on success. The caller is responsible
 /// for updating `ManagedAgentRecord` fields and inserting into the runtimes map.
@@ -1661,6 +1648,7 @@ pub fn spawn_agent_child(
     // and for the env-var merge at spawn time.
     let global = crate::managed_agents::load_global_agent_config(app).unwrap_or_default();
     let effective_command = super::record_agent_command(record, &personas);
+    let runtime_meta = known_acp_runtime(&effective_command);
     let agent_args = normalize_agent_args(&effective_command, record.agent_args.clone());
     let resolved_acp_command = resolve_command(&record.acp_command)
         .ok_or_else(|| missing_command_message(&record.acp_command, "ACP harness command"))?;
@@ -1719,7 +1707,11 @@ pub fn spawn_agent_child(
     command.env("RUST_LOG", child_rust_log_filter());
     command.env("BUZZ_PRIVATE_KEY", &record.private_key_nsec);
     command.env("BUZZ_RELAY_URL", &effective_relay_url);
-    command.env("BUZZ_ACP_LAZY_POOL", if lazy { "true" } else { "false" });
+    let defer_agent_start = should_defer_agent_start(lazy, runtime_meta);
+    command.env(
+        "BUZZ_ACP_LAZY_POOL",
+        if defer_agent_start { "true" } else { "false" },
+    );
     command.env("BUZZ_ACP_AGENT_COMMAND", &resolved_agent_command);
     command.env("BUZZ_ACP_AGENT_ARGS", agent_args.join(","));
     match &resolved_mcp_command {
@@ -1732,7 +1724,6 @@ pub fn spawn_agent_child(
     }
     // Enable MCP hook tools (_Stop, _PostCompact) for agents that need them.
     // Uses "*" because build_mcp_servers() hard-codes the server name to "buzz-mcp".
-    let runtime_meta = known_acp_runtime(&effective_command);
     if runtime_meta.is_some_and(|r| r.mcp_hooks) {
         command.env("MCP_HOOK_SERVERS", "*");
     }
@@ -1844,13 +1835,18 @@ pub fn spawn_agent_child(
             );
         }
     }
-    // Only emit BUZZ_ACP_IDLE_TIMEOUT when the user has explicitly set an
-    // override. When unset, the buzz-acp harness applies its own default
-    // (see `DEFAULT_IDLE_TIMEOUT_SECS` in crates/buzz-acp/src/config.rs),
-    // which is the single source of truth. The previously-emitted
-    // `BUZZ_ACP_TURN_TIMEOUT` is deprecated upstream and was pinning every
-    // agent to the desktop's stale default (320s), bypassing harness bumps.
-    if let Some(idle) = record.idle_timeout_seconds {
+    // Emit BUZZ_ACP_IDLE_TIMEOUT for an explicit agent override or a
+    // KnownAcpRuntime catalog default. Otherwise the buzz-acp harness applies
+    // its generic default (see `DEFAULT_IDLE_TIMEOUT_SECS` in
+    // crates/buzz-acp/src/config.rs). An inherited process value is preserved,
+    // and the merged global/persona/agent env layer below can still override
+    // the catalog default. The deprecated `BUZZ_ACP_TURN_TIMEOUT` remains
+    // intentionally absent.
+    if let Some(idle) = effective_idle_timeout(
+        record.idle_timeout_seconds,
+        std::env::var_os("BUZZ_ACP_IDLE_TIMEOUT").is_some(),
+        runtime_meta,
+    ) {
         command.env("BUZZ_ACP_IDLE_TIMEOUT", idle.to_string());
     }
 
@@ -1883,13 +1879,14 @@ pub fn spawn_agent_child(
     let effective_prompt = super::spawn_hash::effective_spawn_prompt(record);
     let (effective_model, effective_provider) =
         crate::managed_agents::resolve_effective_model_provider(record, &personas, &global);
+    let harness_model = harness_model_for_runtime(runtime_meta, effective_model);
 
     if let Some(prompt) = &effective_prompt {
         command.env("BUZZ_ACP_SYSTEM_PROMPT", prompt);
     } else {
         command.env_remove("BUZZ_ACP_SYSTEM_PROMPT");
     }
-    if let Some(model) = effective_model {
+    if let Some(model) = harness_model {
         command.env("BUZZ_ACP_MODEL", model);
     } else {
         command.env_remove("BUZZ_ACP_MODEL");
@@ -2004,6 +2001,10 @@ pub fn spawn_agent_child(
             command.env(key, value);
         }
     }
+
+    // Runtime identity and safety policy goes last so ambient, global,
+    // persona, and per-agent values cannot silently override it.
+    apply_runtime_env_policy(&mut command, runtime_meta);
 
     // Stamp desktop ownership and an unpredictable harness-generation identity.
     let start_nonce = uuid::Uuid::new_v4().simple().to_string();
@@ -2208,5 +2209,7 @@ pub(crate) fn resolve_effective_prompt_model_provider(
     }
 }
 
+#[cfg(all(test, unix))]
+mod process_tree_tests;
 #[cfg(test)]
 mod tests;

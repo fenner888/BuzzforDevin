@@ -1,3 +1,5 @@
+import { isSupportedAppDeepLinkProtocol } from "@/shared/appIdentity";
+
 export const INVITE_EXPIRED_ERROR = "invite_expired";
 
 /**
@@ -32,7 +34,7 @@ export function parseInviteInput(input: string): ParsedInvite | null {
 
     // buzz://join?relay=...&code=...
     // Non-special schemes put the authority in `host`, not `pathname`.
-    if (url.protocol === "buzz:") {
+    if (isSupportedAppDeepLinkProtocol(url.protocol)) {
       if (url.host !== "join") return null;
       const relay = url.searchParams.get("relay");
       const code = url.searchParams.get("code");

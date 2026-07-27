@@ -2,6 +2,7 @@
 /target/
 /dist/
 /admin-web/dist/
+/desktop/src-tauri/tauri.buzz-for-devin.conf.json
 
 # lefthook-generated hook scripts (machine-specific)
 .hooks/

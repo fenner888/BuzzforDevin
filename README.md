@@ -12,6 +12,12 @@
 > [community-fork policy](COMMUNITY_FORK.md).
 
 <p align="center">
+  <a href="docs/buzz-for-devin-builders.md"><strong>Run the source preview</strong></a> ·
+  <a href="https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.2">Source alpha</a> ·
+  <a href="https://github.com/block/buzz/pull/3225">Upstream proposal</a>
+</p>
+
+<p align="center">
   <a href="VISION.md">Vision</a> ·
   <a href="VISION_SOVEREIGN.md">Sovereign</a> ·
   <a href="VISION_PROJECTS.md">Forge</a> ·
@@ -107,7 +113,7 @@ Agents are part of the room, not haunted cron jobs.
 |---|---|---|
 | Relay, channels, threads, DMs, canvases, media, search, audit log | Mobile clients (iOS + Android, Flutter) | Web-of-trust reputation across relays |
 | Desktop app (Tauri + React) | Workflow approval gates (infra exists, glue still drying) | Push notifications |
-| `buzz-cli` (agent-first, JSON in / JSON out) + ACP harness (Goose, Codex, Claude Code) | Huddle lifecycle events | Culture features |
+| `buzz-cli` (agent-first, JSON in / JSON out) + ACP harness (Devin, Goose, Codex, Claude Code) | Huddle lifecycle events | Culture features |
 | YAML workflows: message / reaction / schedule / webhook triggers | | |
 | Git events (NIP-34: patches, repo announcements, status) | | |
 | Git hosting backend | | |
@@ -120,11 +126,27 @@ Agents are part of the room, not haunted cron jobs.
 
 New to Buzz? Pick the path that matches you.
 
-### I just want to try the app
+### I want to try Devin before the upstream proposal merges
 
-Grab a packaged build from the [latest release](https://github.com/block/buzz/releases/latest) — macOS (`.dmg`), Linux (`.AppImage` / `.deb`), or Windows (`.exe`). Install it like any other app.
+Use the immutable
+[source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.2)
+and follow the
+[builder preview guide](docs/buzz-for-devin-builders.md). There is no unsigned
+application download to redistribute. Builders run the reviewed source on
+macOS, Linux, or Windows and connect their own authenticated official Devin CLI.
 
-By default the app connects to `ws://localhost:3000`. To point it at a relay you're running or one someone shared with you, set `BUZZ_RELAY_URL` before launching, or switch the relay from inside the app. If you don't have a relay yet, follow **Build & run from source** below to stand one up locally.
+Apple Silicon has completed fork-specific live acceptance. Intel macOS, Linux,
+and Windows are experimental until a builder completes the documented live
+Devin ACP acceptance on each host.
+
+### I want the current upstream Buzz release
+
+Block publishes upstream Buzz for macOS (`.dmg`), Linux
+(`.AppImage` / `.deb`), and Windows (`.exe`) on the
+[Block Buzz releases page](https://github.com/block/buzz/releases/latest).
+Those packages should not be described as including Devin until
+[the focused Devin preset proposal](https://github.com/block/buzz/pull/3225)
+is merged and appears in an upstream release.
 
 ### I work at Block
 
@@ -140,11 +162,19 @@ See **Quick start** below — this is the developer / self-host path.
 
 ## Quick start
 
-You'll need [Docker](https://docs.docker.com/get-docker/) and [Hermit](https://cashapp.github.io/hermit/) (or Rust 1.88+, Node 24+, pnpm 10+, `just`).
+For the fastest preview against an existing community, follow
+[the source-preview instructions](docs/buzz-for-devin-builders.md); that path
+does not require a local relay or Docker.
+
+To run a complete self-hosted development stack, you'll need
+[Docker](https://docs.docker.com/get-docker/) and
+[Hermit](https://cashapp.github.io/hermit/) (or the repository-compatible Rust,
+Node, pnpm, and `just` toolchains).
 
 **Once:**
 ```bash
-git clone https://github.com/block/buzz.git && cd buzz
+git clone https://github.com/fenner888/BuzzforDevin.git && cd BuzzforDevin
+git checkout buzz-for-devin-v0.4.25-alpha.2
 . ./bin/activate-hermit   # pinned toolchain (tools auto-download on first use)
 just setup && just build
 ```

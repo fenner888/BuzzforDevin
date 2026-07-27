@@ -147,12 +147,26 @@ pub(crate) fn find_local_repo_dir(
 pub(crate) fn default_repos_root_candidates() -> Vec<std::path::PathBuf> {
     let mut candidates = Vec::new();
     candidates.extend(nest_dir().map(|path| path.join("REPOS")));
-    candidates.extend(
-        dirs::home_dir()
-            .map(|home| home.join(".buzz").join("REPOS"))
-            .filter(|path| !candidates.iter().any(|candidate| candidate == path)),
+    append_upstream_repos_fallback(
+        &mut candidates,
+        dirs::home_dir(),
+        crate::managed_agents::uses_upstream_nest_namespace(),
     );
     candidates
+}
+
+fn append_upstream_repos_fallback(
+    candidates: &mut Vec<std::path::PathBuf>,
+    home: Option<std::path::PathBuf>,
+    uses_upstream_namespace: bool,
+) {
+    if !uses_upstream_namespace {
+        return;
+    }
+    candidates.extend(
+        home.map(|home| home.join(".buzz").join("REPOS"))
+            .filter(|path| !candidates.iter().any(|candidate| candidate == path)),
+    );
 }
 
 pub(crate) fn canonicalize_repos_root(
@@ -189,4 +203,33 @@ pub(crate) fn canonical_repos_roots(
         return Err("reposDir is not accessible".to_string());
     }
     Ok(roots)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::append_upstream_repos_fallback;
+
+    #[test]
+    fn isolated_build_does_not_fall_back_to_upstream_buzz_repos() {
+        let home = std::path::PathBuf::from("/Users/example");
+        let mut candidates = vec![home.join(".buzz-for-devin/REPOS")];
+
+        append_upstream_repos_fallback(&mut candidates, Some(home), false);
+
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].ends_with(".buzz-for-devin/REPOS"));
+    }
+
+    #[test]
+    fn upstream_build_preserves_legacy_buzz_repos_fallback() {
+        let home = std::path::PathBuf::from("/Users/example");
+        let mut candidates = vec![home.join(".buzz-dev/REPOS")];
+
+        append_upstream_repos_fallback(&mut candidates, Some(home.clone()), true);
+
+        assert_eq!(
+            candidates,
+            vec![home.join(".buzz-dev/REPOS"), home.join(".buzz/REPOS")]
+        );
+    }
 }

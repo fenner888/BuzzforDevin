@@ -106,6 +106,61 @@ fn goose_has_no_mcp_hooks() {
 }
 
 #[test]
+fn devin_uses_native_acp_without_mcp_hooks() {
+    let runtime = known_acp_runtime("/usr/local/bin/devin").expect("should resolve");
+    assert_eq!(runtime.id, "devin");
+    assert_eq!(runtime.default_args, &["acp"]);
+    assert!(!runtime.defer_agent_start_until_work);
+    assert_eq!(runtime.default_idle_timeout_secs, Some(120));
+    assert!(runtime.default_env.is_empty());
+    assert_eq!(
+        runtime.enforced_env,
+        &[
+            ("BUZZ_ACP_PERMISSION_MODE", "default"),
+            ("BUZZ_ACP_AUTO_APPROVE_PERMISSIONS", "false"),
+            ("BUZZ_ACP_INTERACTIVE_PERMISSIONS", "true"),
+            ("BUZZ_ACP_SELF_PUBLISH_COMPLETION_GRACE", "30"),
+        ]
+    );
+    assert_eq!(runtime.scrub_env_vars, &["WINDSURF_API_KEY", "ACP_BACKEND"]);
+    assert!(!runtime.mcp_hooks);
+    assert_eq!(runtime.mcp_command, None);
+}
+
+#[test]
+fn devin_permission_default_does_not_change_existing_runtimes() {
+    assert_eq!(
+        known_acp_runtime("goose")
+            .expect("Goose runtime")
+            .default_env,
+        &[("GOOSE_MODE", "auto")]
+    );
+    for command in ["claude-agent-acp", "codex-acp", "buzz-agent"] {
+        let runtime = known_acp_runtime(command).expect("existing runtime");
+        assert!(
+            runtime.default_env.is_empty(),
+            "{command} defaults must remain unchanged"
+        );
+        assert!(
+            runtime.enforced_env.is_empty(),
+            "{command} enforced environment must remain unchanged"
+        );
+        assert!(
+            runtime.scrub_env_vars.is_empty(),
+            "{command} environment scrubs must remain unchanged"
+        );
+        assert!(
+            runtime.defer_agent_start_until_work,
+            "{command} lazy startup must remain unchanged"
+        );
+        assert_eq!(
+            runtime.default_idle_timeout_secs, None,
+            "{command} idle timeout must remain unchanged"
+        );
+    }
+}
+
+#[test]
 fn unknown_command_returns_none() {
     assert!(known_acp_runtime("custom-agent").is_none());
 }
@@ -557,6 +612,13 @@ fn name_matches_known_binary_rejects_node() {
 }
 
 #[test]
+fn name_matches_known_binary_accepts_native_devin_child() {
+    // Devin starts in its own process group. The exact-instance environment
+    // marker keeps the sweep scoped to children launched by this app.
+    assert!(super::name_matches_known_binary("devin"));
+}
+
+#[test]
 fn name_matches_interpreter_accepts_node() {
     // `node` IS a known script interpreter and must be recognized.
     assert!(super::name_matches_interpreter("node"));
@@ -577,45 +639,6 @@ fn name_matches_interpreter_rejects_node_prefix() {
     assert!(!super::name_matches_interpreter("node_modules"));
     assert!(!super::name_matches_interpreter("nodejs"));
     assert!(!super::name_matches_interpreter("node-gyp"));
-}
-
-#[test]
-fn claude_spawn_uses_the_probed_cli_executable() {
-    let _guard = crate::managed_agents::lock_path_mutex();
-    let temp = tempfile::tempdir().expect("temp dir");
-    let cli = temp
-        .path()
-        .join(format!("claude{}", std::env::consts::EXE_SUFFIX));
-    std::fs::write(&cli, "").expect("write fake cli");
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&cli, std::fs::Permissions::from_mode(0o755))
-            .expect("make fake cli executable");
-    }
-    let original_path = std::env::var_os("PATH");
-    std::env::set_var("PATH", temp.path());
-
-    let mut command = std::process::Command::new("buzz-acp");
-    super::configure_runtime_cli(&mut command, super::known_acp_runtime("claude-agent-acp"));
-
-    if let Some(path) = original_path {
-        std::env::set_var("PATH", path);
-    } else {
-        std::env::remove_var("PATH");
-    }
-    assert!(command
-        .get_envs()
-        .any(|(key, value)| { key == "CLAUDE_CODE_EXECUTABLE" && value == Some(cli.as_os_str()) }));
-}
-
-#[test]
-fn codex_spawn_does_not_set_a_claude_executable() {
-    let mut command = std::process::Command::new("buzz-acp");
-    super::configure_runtime_cli(&mut command, super::known_acp_runtime("codex-acp"));
-    assert!(!command
-        .get_envs()
-        .any(|(key, _)| key == "CLAUDE_CODE_EXECUTABLE"));
 }
 
 /// On Windows, `.cmd` and `.bat` batch shims must NOT be assigned to
@@ -687,6 +710,8 @@ fn batch_shim_no_extension_is_not_rejected() {
 fn grandchild_inherits_pgid_of_process_group_leader() {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
+
+    let _path_guard = crate::managed_agents::lock_path_mutex();
 
     // Spawn a "harness" process in its own process group (mirrors
     // `command.process_group(0)` in the real spawn path). The harness
@@ -780,6 +805,8 @@ fn grandchild_inherits_pgid_of_process_group_leader() {
 fn own_group_grandchild_detected_by_ancestor_walk() {
     use std::os::unix::process::CommandExt;
     use std::process::Command;
+
+    let _path_guard = crate::managed_agents::lock_path_mutex();
 
     // The test process is the "harness". Spawn an intermediate with its own
     // process group (mirrors the node shim). It backgrounds a grandchild

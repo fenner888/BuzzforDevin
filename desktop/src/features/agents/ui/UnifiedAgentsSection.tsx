@@ -1,11 +1,16 @@
 import * as React from "react";
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 
-import { formatAgentModelLabel } from "@/features/agents/lib/formatAgentModelLabel";
+import { formatAgentCardModelLabel } from "@/features/agents/lib/formatAgentCardModelLabel";
 import { friendlyAgentLastError } from "@/features/agents/lib/friendlyAgentLastError";
 import { isManagedAgentActive } from "@/features/agents/lib/managedAgentControlActions";
+import { resolveAgentCardAvatarUrl } from "@/features/agents/lib/resolveAgentCardAvatarUrl";
 import { useUserProfileQuery } from "@/features/profile/hooks";
-import type { AgentPersona, ManagedAgent } from "@/shared/api/types";
+import type {
+  AcpRuntimeCatalogEntry,
+  AgentPersona,
+  ManagedAgent,
+} from "@/shared/api/types";
 import type { ProfilePanelOpenOptions } from "@/shared/context/ProfilePanelContext";
 import { useFeedbackToasts } from "@/shared/hooks/useToastEffect";
 import { useFileImportZone } from "@/shared/hooks/useFileImportZone";
@@ -25,6 +30,7 @@ import { buildUnifiedGroups, pickProfileAgent } from "./unifiedAgentGroups";
 
 type UnifiedAgentsSectionProps = {
   defaultModel: string;
+  runtimes: AcpRuntimeCatalogEntry[];
   actionErrorMessage: string | null;
   actionNoticeMessage: string | null;
   agents: ManagedAgent[];
@@ -68,6 +74,7 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
     actionErrorMessage,
     actionNoticeMessage,
     defaultModel,
+    runtimes,
     agents,
     agentsError,
     isActionPending,
@@ -150,6 +157,9 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
           <div className={AGENT_CARD_GRID_CLASS}>
             {groups.map((group) => {
               const profileAgent = pickProfileAgent(group.agents);
+              const personaRuntime = runtimes.find(
+                (runtime) => runtime.id === group.persona.runtime,
+              );
               return (
                 <AgentPersonaCard
                   actions={
@@ -169,6 +179,7 @@ export function UnifiedAgentsSection(props: UnifiedAgentsSectionProps) {
                   defaultModel={defaultModel}
                   key={group.persona.id}
                   persona={group.persona}
+                  runtime={personaRuntime}
                   startingAgentPubkey={startingAgentPubkey}
                   startingPersonaIds={startingPersonaIds}
                   onOpenAgentProfile={onOpenAgentProfile}
@@ -239,6 +250,7 @@ function AgentPersonaCard({
   agent,
   defaultModel,
   persona,
+  runtime,
   startingAgentPubkey,
   startingPersonaIds,
   onOpenAgentProfile,
@@ -250,6 +262,7 @@ function AgentPersonaCard({
   agent: ManagedAgent | undefined;
   defaultModel: string;
   persona: AgentPersona;
+  runtime: AcpRuntimeCatalogEntry | undefined;
   startingAgentPubkey: string | null;
   startingPersonaIds: ReadonlySet<string>;
   onOpenAgentProfile: (
@@ -262,14 +275,28 @@ function AgentPersonaCard({
 }) {
   const title = persona.displayName;
   const explicitModel = agent?.model ?? persona.model;
-  const modelLabel = explicitModel?.trim()
-    ? formatAgentModelLabel(explicitModel)
-    : formatDefaultModelLabel(defaultModel);
+  const modelLabel = formatAgentCardModelLabel(
+    explicitModel,
+    defaultModel,
+    runtime?.supportsBuzzModelConfig ?? agent?.supportsBuzzModelConfig ?? null,
+  );
   const isActive = agent ? isManagedAgentActive(agent) : false;
   const profileQuery = useUserProfileQuery(agent?.pubkey);
   const avatarUrl = agent
-    ? firstAvatarUrl(persona.avatarUrl, profileQuery.data?.avatarUrl)
-    : persona.avatarUrl;
+    ? resolveAgentCardAvatarUrl(
+        [
+          persona.avatarUrl,
+          agent.avatarUrl,
+          profileQuery.data?.avatarUrl,
+          runtime?.iconUrl ?? agent.runtimeIconUrl,
+          runtime?.avatarUrl ?? agent.runtimeAvatarUrl,
+        ],
+        runtime?.supersededAvatarUrls ?? agent.runtimeSupersededAvatarUrls,
+      )
+    : resolveAgentCardAvatarUrl(
+        [persona.avatarUrl, runtime?.iconUrl, runtime?.avatarUrl],
+        runtime?.supersededAvatarUrls ?? [],
+      );
   const friendlyError = agent
     ? friendlyAgentLastError(agent.lastError, agent.lastErrorCode)?.copy
     : null;
@@ -357,6 +384,10 @@ function StandaloneAgentCard({
   )?.copy;
   const isActive = isManagedAgentActive(agent);
   const opensRuntimeTab = Boolean(friendlyError && !isActive);
+  const avatarUrl = resolveAgentCardAvatarUrl(
+    [agent.avatarUrl, profileQuery.data?.avatarUrl, agent.runtimeAvatarUrl],
+    agent.runtimeSupersededAvatarUrls,
+  );
 
   return (
     <AgentIdentityCard
@@ -364,7 +395,7 @@ function StandaloneAgentCard({
       avatar={
         <AgentRuntimeAvatarControl
           activeTestId={`agent-runtime-active-${agent.pubkey}`}
-          avatarUrl={profileQuery.data?.avatarUrl}
+          avatarUrl={avatarUrl}
           errorLabel={friendlyError}
           errorTestId={`agent-runtime-error-${agent.pubkey}`}
           isActive={isActive}
@@ -377,14 +408,14 @@ function StandaloneAgentCard({
           onStart={() => onStartAgent(agent.pubkey)}
         />
       }
-      avatarUrl={profileQuery.data?.avatarUrl}
+      avatarUrl={avatarUrl}
       dataTestId={`managed-agent-${agent.pubkey}`}
       label={title}
-      modelLabel={
-        agent.model?.trim()
-          ? formatAgentModelLabel(agent.model)
-          : formatDefaultModelLabel(defaultModel)
-      }
+      modelLabel={formatAgentCardModelLabel(
+        agent.model,
+        defaultModel,
+        agent.supportsBuzzModelConfig,
+      )}
       onClick={() => {
         onOpenAgentProfile(
           agent.pubkey,
@@ -401,21 +432,6 @@ function StandaloneAgentCard({
       }
     />
   );
-}
-
-function formatDefaultModelLabel(defaultModel: string) {
-  const model = defaultModel.trim();
-  return model ? `Default model (${model})` : "Default model";
-}
-
-function firstAvatarUrl(
-  ...candidates: Array<string | null | undefined>
-): string | null {
-  for (const candidate of candidates) {
-    const trimmed = candidate?.trim();
-    if (trimmed) return trimmed;
-  }
-  return null;
 }
 
 function NewAgentCard({

@@ -22,6 +22,9 @@ pub use user_search::{
 
 // ── Tag helpers ─────────────────────────────────────────────────────────────
 
+mod managed_agents;
+pub use managed_agents::managed_agents_from_events;
+
 /// Find the first tag whose name matches `name` and return its first value.
 ///
 /// e.g. for tag `["name", "general"]` with `name="name"` returns `Some("general")`.

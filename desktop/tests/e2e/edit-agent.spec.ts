@@ -278,16 +278,12 @@ test.describe("edit agent dialog", () => {
     ).toBeVisible();
   });
 
-  test("profile Edit routes persona-linked agents to the definition editor", async ({
+  test("profile Edit routes persona-linked agents to the instance editor", async ({
     page,
   }) => {
-    // Routing pin for handleEditAgent (UserProfilePanel): when the agent has
-    // a resolvable non-built-in persona, the Edit quick action opens the
-    // DEFINITION editor (persona dialog), not EditAgentDialog. The instance
-    // editor (and its inherit-runtime toggle) is reachable for persona-linked
-    // agents only via the requestOpenEditAgent event (ConfigNudgeCard) — no
-    // plain UI path — so its inherit-toggle behavior is covered by B3b's
-    // component-level pinning test, not e2e.
+    // Routing pin for handleEditAgent (UserProfilePanel): a profile represents
+    // one live managed instance, so Edit must open that instance's editor.
+    // Definition editing remains reachable through the linked-definition CTA.
     await installMockBridge(page, {
       managedAgents: [
         {
@@ -322,12 +318,20 @@ test.describe("edit agent dialog", () => {
     });
     await page.getByTestId("user-profile-edit-agent").click();
 
-    // Definition editor opens; the instance editor does not.
+    // The instance editor opens, seeded from the concrete managed agent.
+    await expect(page.getByTestId("edit-agent-dialog")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByTestId("persona-dialog")).not.toBeVisible();
+    await expect(page.locator("#edit-agent-name")).toHaveValue(AGENT_NAME);
+
+    // The definition editor is still one explicit hop away for shared identity
+    // fields such as the avatar.
+    await page.getByRole("button", { name: "Edit avatar" }).click();
+    await expect(page.getByTestId("edit-agent-dialog")).not.toBeVisible();
     await expect(page.getByTestId("persona-dialog")).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByTestId("edit-agent-dialog")).not.toBeVisible();
-    // And it is the persona's record that's being edited.
     await expect(page.locator("#persona-display-name")).toHaveValue(
       "Edit E2E Persona",
     );
