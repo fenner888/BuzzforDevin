@@ -61,13 +61,29 @@ case "$HOST_OS" in
     ;;
 esac
 
-for required in cargo node pnpm rustc; do
+for required in cargo node rustc; do
   if ! command -v "$required" >/dev/null 2>&1; then
     echo "Error: required build tool '$required' is not on PATH." >&2
     echo "See docs/buzz-for-devin-builders.md for host prerequisites." >&2
     exit 1
   fi
 done
+
+PNPM_COMMAND=(pnpm)
+if ! pnpm --version >/dev/null 2>&1; then
+  # pnpm 11 no longer publishes a standalone Intel macOS archive, so Hermit's
+  # package cannot resolve there. Corepack uses the same exact packageManager
+  # version from package.json without installing anything globally.
+  if command -v corepack >/dev/null 2>&1 && \
+    (cd "$REPO_ROOT" && corepack pnpm --version >/dev/null 2>&1); then
+    PNPM_COMMAND=(corepack pnpm)
+    echo "Hermit pnpm is unavailable on this host; using the pinned Corepack pnpm."
+  else
+    echo "Error: pinned pnpm is unavailable through both Hermit and Corepack." >&2
+    echo "See docs/buzz-for-devin-builders.md for host prerequisites." >&2
+    exit 1
+  fi
+fi
 
 TARGET=$(rustc -vV | sed -n 's|host: ||p')
 case "$TARGET" in
@@ -101,7 +117,7 @@ else
 fi
 
 cd "$REPO_ROOT"
-pnpm install --frozen-lockfile
+"${PNPM_COMMAND[@]}" install --frozen-lockfile
 cargo build --release --target "$TARGET" \
   -p buzz-acp \
   -p buzz-agent \
@@ -132,4 +148,4 @@ unset BUZZ_PRIVATE_KEY BUZZ_SHARE_IDENTITY
 
 echo "Starting Buzz for Devin source preview for $TARGET."
 echo "Select or join a community during onboarding."
-pnpm exec tauri dev --config src-tauri/tauri.buzz-for-devin.conf.json
+"${PNPM_COMMAND[@]}" exec tauri dev --config src-tauri/tauri.buzz-for-devin.conf.json

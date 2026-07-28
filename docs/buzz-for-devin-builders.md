@@ -12,9 +12,9 @@ Cognition product.
 
 Use the immutable source prerelease:
 
-- Tag: `buzz-for-devin-v0.4.25-alpha.2`
+- Tag: `buzz-for-devin-v0.4.25-alpha.3`
 - Release:
-  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.2>
+  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.3>
 - Focused upstream proposal:
   <https://github.com/block/buzz/pull/3225>
 
@@ -58,11 +58,12 @@ mean that this fork publishes a supported installer for that platform.
 ```sh
 git clone https://github.com/fenner888/BuzzforDevin.git
 cd BuzzforDevin
-git checkout buzz-for-devin-v0.4.25-alpha.2
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.3
 ```
 
-Do not test an arbitrary moving branch when reporting a compatibility result.
-Include the tag and commit in every report.
+The named local branch avoids Git's detached-HEAD warning while preserving the
+reviewed tag as its starting point. Do not test an arbitrary moving branch when
+reporting a compatibility result. Include the tag and commit in every report.
 
 ## Confirm Devin CLI readiness
 
@@ -91,6 +92,9 @@ its PowerShell setup path for Windows.
 
 Install Xcode Command Line Tools if they are not already present. The repository
 Hermit environment supplies the pinned Rust, Node, and pnpm toolchains.
+On Intel Macs, where pnpm no longer publishes the standalone archive Hermit
+expects, the source launcher automatically uses the same pinned pnpm version
+through the repository's Corepack toolchain.
 
 From the repository root:
 
