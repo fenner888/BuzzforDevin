@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Error: the initial Buzz for Devin installer supports macOS only." >&2
+  echo "Error: the Buzz for Devin installer supports macOS only." >&2
   exit 1
 fi
 

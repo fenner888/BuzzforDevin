@@ -17,6 +17,7 @@ fi
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/buzz-for-devin-lifecycle.XXXXXX")
 INSTALL_ROOT="$TEST_ROOT/Applications"
 TRASH_ROOT="$TEST_ROOT/Trash"
+SIGNED_TRASH_ROOT="$TEST_ROOT/Signed Trash"
 FIXTURES_ROOT="$TEST_ROOT/fixtures"
 RUNNING_SENTINEL_PID=""
 
@@ -31,7 +32,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$INSTALL_ROOT" "$TRASH_ROOT" "$FIXTURES_ROOT"
+mkdir -p "$INSTALL_ROOT" "$TRASH_ROOT" "$SIGNED_TRASH_ROOT" "$FIXTURES_ROOT"
 V1_APP="$FIXTURES_ROOT/Buzz for Devin v1.app"
 V2_APP="$FIXTURES_ROOT/Buzz for Devin v2.app"
 INVALID_APP="$FIXTURES_ROOT/Buzz for Devin invalid.app"
@@ -55,9 +56,22 @@ run_rollback() {
 
 run_uninstaller() {
   BUZZ_FOR_DEVIN_INSTALL_ROOT="$INSTALL_ROOT" \
-    BUZZ_FOR_DEVIN_TRASH_ROOT="$TRASH_ROOT" \
+    BUZZ_FOR_DEVIN_TRASH_ROOT="${1:-$TRASH_ROOT}" \
     "$REPO_ROOT/scripts/uninstall-buzz-for-devin-macos.sh"
 }
+
+# When the input is signed, prove that the low-level installer and recoverable
+# uninstaller preserve that signature before creating deliberately modified
+# lifecycle fixtures below.
+if codesign --verify --deep --strict "$SOURCE_APP" >/dev/null 2>&1; then
+  run_installer "$SOURCE_APP"
+  codesign --verify --deep --strict \
+    "$INSTALL_ROOT/Buzz for Devin.app"
+  run_uninstaller "$SIGNED_TRASH_ROOT"
+  SIGNED_TRASHED=("$SIGNED_TRASH_ROOT"/Buzz\ for\ Devin-*.app)
+  [[ ${#SIGNED_TRASHED[@]} -eq 1 && -d "${SIGNED_TRASHED[0]}" ]]
+  codesign --verify --deep --strict "${SIGNED_TRASHED[0]}"
+fi
 
 # A malformed source must be rejected before an installed app can be changed.
 if run_installer "$INVALID_APP" >/dev/null 2>&1; then
