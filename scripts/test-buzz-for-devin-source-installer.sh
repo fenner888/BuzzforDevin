@@ -8,6 +8,7 @@ FAKE_BIN="$TEST_ROOT/bin"
 INSTALL_ROOT="$TEST_ROOT/Applications"
 LOG_FILE="$TEST_ROOT/install.log"
 CODESIGN_LOG="$TEST_ROOT/codesign.log"
+BUILD_LOG="$TEST_ROOT/build.log"
 
 cleanup() {
   if [[ -d "$TEST_ROOT" && "$TEST_ROOT" == "${TMPDIR:-/tmp}/buzz-for-devin-source-installer."* ]]; then
@@ -23,9 +24,11 @@ cat >"$REPO_FIXTURE/scripts/build-buzz-for-devin-macos.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-APP="$REPO_ROOT/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Buzz for Devin.app"
+TARGET=${1:?target is required}
+APP="$REPO_ROOT/desktop/src-tauri/target/$TARGET/release/bundle/macos/Buzz for Devin.app"
 mkdir -p "$APP/Contents/MacOS"
 touch "$APP/Contents/MacOS/fixture"
+printf '%s\n' "$TARGET" >>"$BUZZ_FOR_DEVIN_TEST_BUILD_LOG"
 EOF
 
 cat >"$REPO_FIXTURE/scripts/verify-buzz-for-devin-macos-app.sh" <<'EOF'
@@ -83,6 +86,16 @@ set -euo pipefail
 echo "/Library/Developer/CommandLineTools"
 EOF
 
+cat >"$FAKE_BIN/uname" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  -s) echo "Darwin" ;;
+  -m) echo "${BUZZ_FOR_DEVIN_TEST_UNAME_M:?test architecture is required}" ;;
+  *) echo "unsupported uname test argument" >&2; exit 1 ;;
+esac
+EOF
+
 chmod +x "$REPO_FIXTURE/scripts/"*.sh "$FAKE_BIN/"*
 
 (
@@ -96,19 +109,43 @@ chmod +x "$REPO_FIXTURE/scripts/"*.sh "$FAKE_BIN/"*
   git tag buzz-for-devin-v0.0.0-test
 )
 
-(
+for TEST_ARCH in arm64 x86_64; do
+  case "$TEST_ARCH" in
+    arm64) EXPECTED_TARGET=aarch64-apple-darwin ;;
+    x86_64) EXPECTED_TARGET=x86_64-apple-darwin ;;
+  esac
+  ARCH_INSTALL_ROOT="$INSTALL_ROOT/$TEST_ARCH"
+  ARCH_LOG_FILE="$TEST_ROOT/install-$TEST_ARCH.log"
+  ARCH_CODESIGN_LOG="$TEST_ROOT/codesign-$TEST_ARCH.log"
+  (
+    cd "$REPO_FIXTURE"
+    PATH="$FAKE_BIN:$PATH" \
+      BUZZ_FOR_DEVIN_INSTALL_ROOT="$ARCH_INSTALL_ROOT" \
+      BUZZ_FOR_DEVIN_INSTALL_LOG="$ARCH_LOG_FILE" \
+      BUZZ_FOR_DEVIN_TEST_CODESIGN_LOG="$ARCH_CODESIGN_LOG" \
+      BUZZ_FOR_DEVIN_TEST_BUILD_LOG="$BUILD_LOG" \
+      BUZZ_FOR_DEVIN_TEST_UNAME_M="$TEST_ARCH" \
+      ./scripts/install-macos-source.sh
+  )
+
+  [[ -f "$ARCH_INSTALL_ROOT/Buzz for Devin.app/Contents/MacOS/fixture" ]]
+  grep -F -- "--force --sign - --timestamp=none" "$ARCH_CODESIGN_LOG" >/dev/null
+  grep -F -- "--verify --deep --strict" "$ARCH_CODESIGN_LOG" >/dev/null
+  grep -F "devin test-version" "$ARCH_LOG_FILE" >/dev/null
+  grep -Fx "$EXPECTED_TARGET" "$BUILD_LOG" >/dev/null
+done
+
+if (
   cd "$REPO_FIXTURE"
   PATH="$FAKE_BIN:$PATH" \
-    BUZZ_FOR_DEVIN_INSTALL_ROOT="$INSTALL_ROOT" \
-    BUZZ_FOR_DEVIN_INSTALL_LOG="$LOG_FILE" \
-    BUZZ_FOR_DEVIN_TEST_CODESIGN_LOG="$CODESIGN_LOG" \
-    ./scripts/install-macos-source.sh
-)
-
-[[ -f "$INSTALL_ROOT/Buzz for Devin.app/Contents/MacOS/fixture" ]]
-grep -F -- "--force --sign - --timestamp=none" "$CODESIGN_LOG" >/dev/null
-grep -F -- "--verify --deep --strict" "$CODESIGN_LOG" >/dev/null
-grep -F "devin test-version" "$LOG_FILE" >/dev/null
+    BUZZ_FOR_DEVIN_TEST_UNAME_M=powerpc \
+    ./scripts/install-macos-source.sh >"$TEST_ROOT/unsupported.out" 2>&1
+); then
+  echo "Error: source installer accepted an unsupported macOS architecture." >&2
+  exit 1
+fi
+grep -F "supports Apple Silicon (arm64) and Intel (x86_64)" \
+  "$TEST_ROOT/unsupported.out" >/dev/null
 
 (
   cd "$REPO_FIXTURE"
@@ -117,6 +154,8 @@ grep -F "devin test-version" "$LOG_FILE" >/dev/null
     BUZZ_FOR_DEVIN_INSTALL_ROOT="$INSTALL_ROOT" \
     BUZZ_FOR_DEVIN_INSTALL_LOG="$LOG_FILE" \
     BUZZ_FOR_DEVIN_TEST_CODESIGN_LOG="$CODESIGN_LOG" \
+    BUZZ_FOR_DEVIN_TEST_BUILD_LOG="$BUILD_LOG" \
+    BUZZ_FOR_DEVIN_TEST_UNAME_M=arm64 \
     ./scripts/install-macos-source.sh >"$TEST_ROOT/untagged.out" 2>&1; then
     echo "Error: source installer accepted a checkout without an exact release tag." >&2
     exit 1

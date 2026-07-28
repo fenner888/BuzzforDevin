@@ -285,11 +285,14 @@ visible.
 ## Distribution boundary
 
 - The source release does not contain a downloadable binary and the in-app
-  updater remains disabled. The Apple Silicon source installer applies a local
-  ad-hoc signature after building; it uses no Apple Developer identity,
-  notarization credential, or Gatekeeper bypass.
+  updater remains disabled. The macOS source installer applies a local ad-hoc
+  signature after building for the host's Apple Silicon or Intel architecture;
+  it uses no Apple Developer identity, notarization credential, or Gatekeeper
+  bypass.
 - Install and upgrade validate the product name, bundle identifier, deep-link
   scheme, and every bundled executable before changing the installed app.
+  Architecture validation rejects mixed bundles and requires every executable
+  to match the supported native host architecture.
 - Installation stages on the destination filesystem and switches only after
   validation. Upgrade and rollback preserve recoverable prior app bundles.
 - The repeatable lifecycle test covers malformed-bundle rejection, refusal
@@ -596,6 +599,21 @@ The final local Apple Silicon source build also passed:
 - The `buzz-for-devin-release` GitHub environment now exists with a required
   reviewer. It contains no signing or notarization secrets, so the canary
   remains fail-closed.
+
+The Intel source-app path was then built from the same reviewed source using
+Buzz's existing `x86_64-apple-darwin` release architecture:
+
+- Tauri produced a 141 MB `Buzz for Devin.app` whose desktop executable and all
+  five packaged sidecars are thin `x86_64` Mach-O binaries.
+- The Intel desktop executable SHA-256 is
+  `96d8d2f4fc5d5db0958649125a1dbe849081d8c496159f7eb8dae0a41cd282ee`.
+- Strict architecture, bundle-identity, ad-hoc-signature, install, upgrade,
+  rollback, and recoverable-uninstall checks passed.
+- The packaged `icon.icns` SHA-256 is
+  `90130e104ab77f898dd8a75b42604a1a4f4df49a81900b2d48850774c53ec1a0`,
+  byte-identical to the installed Buzz for Hermes icon.
+- A real Intel host must still complete first launch and live Devin ACP
+  acceptance before Intel support is promoted beyond experimental.
 
 The toolchain snapshot was Rust 1.95.0, Node 24.14.0, pnpm 11.4.0, macOS
 26.5.1 on Apple Silicon, and Devin CLI 3000.2.17. `devin auth status` and

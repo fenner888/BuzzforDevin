@@ -10,11 +10,25 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
-TARGET=${1:-aarch64-apple-darwin}
-if [[ "$TARGET" != "aarch64-apple-darwin" ]]; then
-  echo "Error: the source-install target must be aarch64-apple-darwin, got '$TARGET'." >&2
-  exit 1
-fi
+case "$(uname -m)" in
+  arm64) HOST_TARGET=aarch64-apple-darwin ;;
+  x86_64) HOST_TARGET=x86_64-apple-darwin ;;
+  *)
+    echo "Error: the source build supports Apple Silicon (arm64) and Intel (x86_64) Macs only." >&2
+    exit 1
+    ;;
+esac
+
+TARGET=${1:-$HOST_TARGET}
+case "$TARGET" in
+  aarch64-apple-darwin) EXPECTED_ARCH=arm64 ;;
+  x86_64-apple-darwin) EXPECTED_ARCH=x86_64 ;;
+  *)
+    echo "Error: unsupported macOS source-install target '$TARGET'." >&2
+    exit 1
+    ;;
+esac
+export BUZZ_FOR_DEVIN_EXPECTED_ARCH="$EXPECTED_ARCH"
 
 # Cognition's installer uses this location. Include it explicitly because a
 # freshly installed CLI may not be visible to the invoking shell yet.

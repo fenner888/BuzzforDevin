@@ -8,7 +8,7 @@ Each person installs and authenticates Devin on their own computer. Buzz starts
 that local CLI with `devin acp`; it does not copy Devin credentials between
 users or machines.
 
-- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.5)
+- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.6)
 - [Builder installation guide](docs/buzz-for-devin-builders.md)
 - [Devin integration notes](DEVIN.md)
 - [Upstream proposal](https://github.com/block/buzz/pull/3225)
@@ -47,19 +47,19 @@ If Devin is installed but unauthenticated, run `devin auth login`. Otherwise,
 no Devin setup is needed. The installer also checks the official
 `~/.local/bin` location automatically.
 
-On an Apple Silicon Mac, clone the reviewed source alpha and run the local
-installer:
+On an Apple Silicon or Intel Mac, clone the reviewed source alpha and run the
+local installer:
 
 ```sh
 git clone https://github.com/fenner888/BuzzforDevin.git
 cd BuzzforDevin
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.5
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.6
 ./scripts/install-macos-source.sh
 ```
 
-The first build normally takes 15–30 minutes and requires approximately 15 GB
-of temporary free space. It builds the reviewed source on your Mac, ad-hoc
-signs the result locally, and installs
+The first build normally takes 15–45 minutes depending on the Mac and requires
+approximately 15 GB of temporary free space. It builds the reviewed source for
+the Mac's native architecture, ad-hoc signs the result locally, and installs
 `~/Applications/Buzz for Devin.app`. It does not require a paid Apple
 Developer account or bypass Gatekeeper. After installation, open the normal
 app; later launches do not recompile it.
@@ -88,23 +88,23 @@ Devin credentials untouched.
 
 ## Run a cross-platform source preview
 
-Intel macOS, Linux, and Windows builders can run the reviewed checkout directly:
+Linux and Windows builders can run the reviewed checkout directly:
 
 ```sh
 ./scripts/run-buzz-for-devin-source.sh
 ```
 
 This development preview recompiles when launched and is not the installed
-Apple Silicon application described above. On macOS, its unbundled development
-executable can also appear as a square Dock icon; the installed application uses
-the normal packaged Buzz icon.
+macOS application described above. An unbundled macOS development executable
+can appear as a square Dock icon; the installed application uses the normal
+packaged Buzz icon.
 
 ## Platform status
 
 | Platform | Status |
 |---|---|
 | Apple Silicon macOS | Locally installed source app and live Devin ACP acceptance available |
-| Intel macOS | Source preview available; live acceptance pending |
+| Intel macOS | Locally installed source app available; live Devin ACP acceptance pending |
 | Linux | Source preview available; live acceptance pending |
 | Windows 11 x86_64 | Source preview available through Git Bash; live acceptance pending |
 

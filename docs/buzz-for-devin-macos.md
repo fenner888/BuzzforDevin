@@ -1,7 +1,7 @@
 # Buzz for Devin on macOS
 
-Buzz for Devin's first distribution target is Apple Silicon running macOS 11.0
-or newer. The fork uses an isolated application identity:
+Buzz for Devin's first distribution target is Apple Silicon and Intel Macs
+running macOS 11.0 or newer. The fork uses an isolated application identity:
 
 - Product name: `Buzz for Devin`
 - Bundle identifier and application-support directory:
@@ -34,7 +34,7 @@ user to an upstream Buzz download by mistake.
 
 Requirements:
 
-- Apple Silicon Mac running macOS 11 or newer
+- Apple Silicon or Intel Mac running macOS 11 or newer
 - Xcode Command Line Tools (`xcode-select --install`)
 - Approximately 15 GB of temporary free space
 - The official Devin CLI installed under the same macOS account
@@ -54,8 +54,8 @@ account, bypass Gatekeeper, modify Devin configuration, or inspect or copy
 Devin credentials. Public dependency fetches ignore global Git URL rewrites
 only for the build process; the script does not modify permanent Git settings.
 
-The first build normally takes 15–30 minutes. Once installed, launch the
-application normally:
+The first build normally takes 15–45 minutes depending on the Mac. Once
+installed, launch the application normally:
 
 ```sh
 open "$HOME/Applications/Buzz for Devin.app"
@@ -95,8 +95,11 @@ Maintainers can pass a separately built, verified app bundle to it directly:
 
 ```sh
 ./scripts/install-buzz-for-devin-macos.sh \
-  "desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Buzz for Devin.app"
+  "desktop/src-tauri/target/<native-target>/release/bundle/macos/Buzz for Devin.app"
 ```
+
+The native target is `aarch64-apple-darwin` on Apple Silicon and
+`x86_64-apple-darwin` on Intel.
 
 The default destination is `~/Applications/Buzz for Devin.app`. If an older
 copy exists, the installer moves it to a timestamped backup before copying the

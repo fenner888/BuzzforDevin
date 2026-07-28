@@ -67,14 +67,25 @@ if ! [[ "$SHORT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
 fi
 require_plist_value "CFBundleVersion" "$SHORT_VERSION"
 
+EXPECTED_ARCH=${BUZZ_FOR_DEVIN_EXPECTED_ARCH:-$(uname -m)}
+case "$EXPECTED_ARCH" in
+  arm64 | x86_64)
+    ;;
+  *)
+    echo "Error: unsupported expected application architecture '$EXPECTED_ARCH'." >&2
+    exit 1
+    ;;
+esac
+
 for binary in buzz-acp buzz-agent buzz-dev-mcp git-credential-nostr buzz buzz-desktop; do
   binary_path="$APP_PATH/Contents/MacOS/$binary"
   if [[ ! -f "$binary_path" || ! -x "$binary_path" ]]; then
     echo "Error: application is missing executable Contents/MacOS/$binary." >&2
     exit 1
   fi
-  if [[ "$(lipo -archs "$binary_path")" != "arm64" ]]; then
-    echo "Error: Contents/MacOS/$binary is not an Apple Silicon-only executable." >&2
+  ACTUAL_ARCH=$(lipo -archs "$binary_path")
+  if [[ "$ACTUAL_ARCH" != "$EXPECTED_ARCH" ]]; then
+    echo "Error: Contents/MacOS/$binary architecture is '$ACTUAL_ARCH'; expected '$EXPECTED_ARCH'." >&2
     exit 1
   fi
 done

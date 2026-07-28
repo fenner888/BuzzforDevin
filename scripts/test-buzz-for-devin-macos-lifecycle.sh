@@ -3,12 +3,22 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
-SOURCE_APP=${1:-"$REPO_ROOT/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Buzz for Devin.app"}
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "Error: the Buzz for Devin lifecycle test supports macOS only." >&2
   exit 1
 fi
+
+case "$(uname -m)" in
+  arm64) TARGET=aarch64-apple-darwin ;;
+  x86_64) TARGET=x86_64-apple-darwin ;;
+  *)
+    echo "Error: unsupported macOS architecture '$(uname -m)'." >&2
+    exit 1
+    ;;
+esac
+
+SOURCE_APP=${1:-"$REPO_ROOT/desktop/src-tauri/target/$TARGET/release/bundle/macos/Buzz for Devin.app"}
 if [[ ! -d "$SOURCE_APP" ]]; then
   echo "Usage: $0 '/path/to/Buzz for Devin.app'" >&2
   exit 1
