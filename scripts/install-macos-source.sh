@@ -23,7 +23,8 @@ usage() {
 Usage: ./scripts/install-macos-source.sh
 
 Build Buzz for Devin from the current immutable release tag, ad-hoc sign the
-locally built bundle, and install it to ~/Applications/Buzz for Devin.app.
+locally built bundle, install it to ~/Applications/Buzz for Devin.app, and
+open the installed application.
 
 This does not require an Apple Developer account, change Devin configuration,
 or inspect or copy Devin credentials.
@@ -60,7 +61,7 @@ case "$(uname -m)" in
 esac
 APP_PATH="$REPO_ROOT/desktop/src-tauri/target/$TARGET/release/bundle/macos/Buzz for Devin.app"
 
-for required in git codesign file xcode-select; do
+for required in git codesign file open xcode-select; do
   command -v "$required" >/dev/null 2>&1 || die "'$required' is required."
 done
 
@@ -112,6 +113,7 @@ codesign --verify --deep --strict "$INSTALLED_APP" 2>&1 | tee -a "$LOG_FILE"
 log ""
 log "Buzz for Devin installed successfully."
 log "Application: $INSTALLED_APP"
-log "Launch it with: open \"$INSTALLED_APP\""
+log "Opening Buzz for Devin..."
+open "$INSTALLED_APP" || die "The application was installed but could not be opened. Launch it manually with: open \"$INSTALLED_APP\""
 log "The first build can take 15-45 minutes depending on the Mac; later launches use the installed app."
 log "No Devin configuration or credentials were modified."

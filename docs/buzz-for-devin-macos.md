@@ -49,10 +49,11 @@ From the reviewed checkout, run:
 The script activates the pinned repository toolchain, builds all required Buzz
 sidecars and the desktop application, applies a local ad-hoc signature, verifies
 the bundle, and installs it to
-`~/Applications/Buzz for Devin.app`. It does not need a paid Apple Developer
-account, bypass Gatekeeper, modify Devin configuration, or inspect or copy
-Devin credentials. Public dependency fetches ignore global Git URL rewrites
-only for the build process; the script does not modify permanent Git settings.
+`~/Applications/Buzz for Devin.app`, then opens the installed application. It
+does not need a paid Apple Developer account, bypass Gatekeeper, modify Devin
+configuration, or inspect or copy Devin credentials. Public dependency fetches
+ignore global Git URL rewrites only for the build process; the script does not
+modify permanent Git settings.
 
 The first build normally takes 15–45 minutes depending on the Mac. Once
 installed, launch the application normally:

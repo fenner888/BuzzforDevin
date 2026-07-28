@@ -9,6 +9,7 @@ INSTALL_ROOT="$TEST_ROOT/Applications"
 LOG_FILE="$TEST_ROOT/install.log"
 CODESIGN_LOG="$TEST_ROOT/codesign.log"
 BUILD_LOG="$TEST_ROOT/build.log"
+OPEN_LOG="$TEST_ROOT/open.log"
 
 cleanup() {
   if [[ -d "$TEST_ROOT" && "$TEST_ROOT" == "${TMPDIR:-/tmp}/buzz-for-devin-source-installer."* ]]; then
@@ -79,6 +80,12 @@ cat >"$FAKE_BIN/file" <<'EOF'
 echo "$1: data"
 EOF
 
+cat >"$FAKE_BIN/open" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$BUZZ_FOR_DEVIN_TEST_OPEN_LOG"
+EOF
+
 cat >"$FAKE_BIN/xcode-select" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -117,6 +124,7 @@ for TEST_ARCH in arm64 x86_64; do
   ARCH_INSTALL_ROOT="$INSTALL_ROOT/$TEST_ARCH"
   ARCH_LOG_FILE="$TEST_ROOT/install-$TEST_ARCH.log"
   ARCH_CODESIGN_LOG="$TEST_ROOT/codesign-$TEST_ARCH.log"
+  ARCH_OPEN_LOG="$TEST_ROOT/open-$TEST_ARCH.log"
   (
     cd "$REPO_FIXTURE"
     PATH="$FAKE_BIN:$PATH" \
@@ -124,6 +132,7 @@ for TEST_ARCH in arm64 x86_64; do
       BUZZ_FOR_DEVIN_INSTALL_LOG="$ARCH_LOG_FILE" \
       BUZZ_FOR_DEVIN_TEST_CODESIGN_LOG="$ARCH_CODESIGN_LOG" \
       BUZZ_FOR_DEVIN_TEST_BUILD_LOG="$BUILD_LOG" \
+      BUZZ_FOR_DEVIN_TEST_OPEN_LOG="$ARCH_OPEN_LOG" \
       BUZZ_FOR_DEVIN_TEST_UNAME_M="$TEST_ARCH" \
       ./scripts/install-macos-source.sh
   )
@@ -133,6 +142,7 @@ for TEST_ARCH in arm64 x86_64; do
   grep -F -- "--verify --deep --strict" "$ARCH_CODESIGN_LOG" >/dev/null
   grep -F "devin test-version" "$ARCH_LOG_FILE" >/dev/null
   grep -Fx "$EXPECTED_TARGET" "$BUILD_LOG" >/dev/null
+  grep -Fx "$ARCH_INSTALL_ROOT/Buzz for Devin.app" "$ARCH_OPEN_LOG" >/dev/null
 done
 
 if (
@@ -155,6 +165,7 @@ grep -F "supports Apple Silicon (arm64) and Intel (x86_64)" \
     BUZZ_FOR_DEVIN_INSTALL_LOG="$LOG_FILE" \
     BUZZ_FOR_DEVIN_TEST_CODESIGN_LOG="$CODESIGN_LOG" \
     BUZZ_FOR_DEVIN_TEST_BUILD_LOG="$BUILD_LOG" \
+    BUZZ_FOR_DEVIN_TEST_OPEN_LOG="$OPEN_LOG" \
     BUZZ_FOR_DEVIN_TEST_UNAME_M=arm64 \
     ./scripts/install-macos-source.sh >"$TEST_ROOT/untagged.out" 2>&1; then
     echo "Error: source installer accepted a checkout without an exact release tag." >&2

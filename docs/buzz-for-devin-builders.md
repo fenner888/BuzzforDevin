@@ -13,9 +13,9 @@ product.
 
 Use the immutable source prerelease:
 
-- Tag: `buzz-for-devin-v0.4.25-alpha.6`
+- Tag: `buzz-for-devin-v0.4.25-alpha.7`
 - Release:
-  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.6>
+  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.7>
 - Focused upstream proposal:
   <https://github.com/block/buzz/pull/3225>
 
@@ -61,9 +61,9 @@ that this fork publishes a supported prebuilt installer for that platform.
 ```sh
 cd "$HOME" &&
 GIT_CONFIG_GLOBAL=/dev/null git clone \
-  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha6 &&
-cd BuzzforDevin-alpha6 &&
-git switch -c buzz-for-devin-alpha6 buzz-for-devin-v0.4.25-alpha.6
+  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha7 &&
+cd BuzzforDevin-alpha7 &&
+git switch -c buzz-for-devin-alpha7 buzz-for-devin-v0.4.25-alpha.7
 ```
 
 The named local branch avoids Git's detached-HEAD warning while preserving the
@@ -127,9 +127,9 @@ from the reviewed tag:
 
 The command needs about 15 GB of temporary free space and normally takes 15–45
 minutes on the first build, depending on the Mac. It creates an ad-hoc-signed
-`~/Applications/Buzz for Devin.app`; no paid Apple Developer membership or
-Gatekeeper bypass is used. Later launches open that app without recompiling.
-Do not redistribute the locally built bundle.
+`~/Applications/Buzz for Devin.app` and opens it after installation; no paid
+Apple Developer membership or Gatekeeper bypass is used. Later launches open
+that app without recompiling. Do not redistribute the locally built bundle.
 
 Update, repair, rollback, and uninstall instructions are in
 [Buzz for Devin on macOS](buzz-for-devin-macos.md).
