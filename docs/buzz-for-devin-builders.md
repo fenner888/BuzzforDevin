@@ -59,14 +59,18 @@ that this fork publishes a supported prebuilt installer for that platform.
 ## Clone the reviewed source
 
 ```sh
-git clone https://github.com/fenner888/BuzzforDevin.git
-cd BuzzforDevin
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.6
+cd "$HOME" &&
+GIT_CONFIG_GLOBAL=/dev/null git clone \
+  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha6 &&
+cd BuzzforDevin-alpha6 &&
+git switch -c buzz-for-devin-alpha6 buzz-for-devin-v0.4.25-alpha.6
 ```
 
 The named local branch avoids Git's detached-HEAD warning while preserving the
 reviewed tag as its starting point. Do not test an arbitrary moving branch when
 reporting a compatibility result. Include the tag and commit in every report.
+The commands are chained so a failed clone cannot continue into checkout or
+installation commands inside an incomplete directory.
 
 ### GitHub URL redirects
 
@@ -75,19 +79,13 @@ Git instead asks for credentials at `git-manager.devin.ai`, stop the prompt
 with Control-C. A local Git URL rewrite is intercepting the GitHub URL before
 Buzz is downloaded.
 
-Use this session-only bypass and a fresh clone directory:
-
-```sh
-export GIT_CONFIG_GLOBAL=/dev/null
-git clone https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-clean
-cd BuzzforDevin-clean
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.6
-./scripts/install-macos-source.sh
-```
-
-The launcher makes Cargo use the normal Git command for public Rust
-dependencies, so Cargo honors the same override. This bypass does not modify
-Devin configuration, credentials, or permanent Git settings.
+The primary clone command above already applies a command-scoped bypass and
+uses a release-specific directory. It does not modify Devin configuration,
+credentials, credential helpers, or permanent Git settings. The launcher makes
+Cargo use the normal Git command for public Rust dependencies and applies the
+same scoped protection. If the release-specific directory already exists from
+an interrupted attempt, move it aside or use another empty directory before
+retrying.
 
 ## Confirm Devin CLI readiness
 

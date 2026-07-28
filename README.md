@@ -51,9 +51,11 @@ On an Apple Silicon or Intel Mac, clone the reviewed source alpha and run the
 local installer:
 
 ```sh
-git clone https://github.com/fenner888/BuzzforDevin.git
-cd BuzzforDevin
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.6
+cd "$HOME" &&
+GIT_CONFIG_GLOBAL=/dev/null git clone \
+  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha6 &&
+cd BuzzforDevin-alpha6 &&
+git switch -c buzz-for-devin-alpha6 buzz-for-devin-v0.4.25-alpha.6 &&
 ./scripts/install-macos-source.sh
 ```
 
@@ -62,12 +64,14 @@ approximately 15 GB of temporary free space. It builds the reviewed source for
 the Mac's native architecture, ad-hoc signs the result locally, and installs
 `~/Applications/Buzz for Devin.app`. It does not require a paid Apple
 Developer account or bypass Gatekeeper. After installation, open the normal
-app; later launches do not recompile it.
+app; later launches do not recompile it. The commands are intentionally chained:
+if the public clone fails, checkout and installation do not continue in a
+partial directory.
 
-If cloning unexpectedly asks for credentials at `git-manager.devin.ai`, do not
-enter them. A local Git URL rewrite is intercepting the public GitHub URL. See
-the [builder guide](docs/buzz-for-devin-builders.md#github-url-redirects) for a
-session-only bypass that does not modify credentials or permanent Git settings.
+The command-scoped `GIT_CONFIG_GLOBAL=/dev/null` bypasses local URL rewrites
+that can redirect public GitHub clones to `git-manager.devin.ai`. It does not
+modify credentials or permanent Git settings. A public clone never requires a
+username or password.
 
 The installed app connects to an existing Buzz community selected during
 onboarding. A local relay and Docker are not required unless you want to
