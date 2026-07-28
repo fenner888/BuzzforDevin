@@ -64,16 +64,25 @@ git checkout buzz-for-devin-v0.4.25-alpha.2
 Do not test an arbitrary moving branch when reporting a compatibility result.
 Include the tag and commit in every report.
 
-## Install and authenticate Devin
+## Confirm Devin CLI readiness
 
-Follow Cognition's current instructions:
+Buzz uses the official Devin CLI already authenticated under the same computer
+account. Check it first:
+
+```sh
+devin auth status
+```
+
+If `devin` is not found on macOS, Linux, or WSL, install it and open a new
+terminal:
 
 ```sh
 curl -fsSL https://cli.devin.ai/install.sh | bash
-devin auth login
-devin --version
-devin auth status
 ```
+
+If the CLI is installed but unauthenticated, run `devin auth login`. The source
+launcher automatically includes Cognition's `~/.local/bin` installation
+location even if the invoking shell has not refreshed its `PATH`.
 
 On Windows, run the installer from Git Bash. Cognition's installer delegates to
 its PowerShell setup path for Windows.
