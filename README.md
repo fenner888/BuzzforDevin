@@ -8,7 +8,7 @@ Each person installs and authenticates Devin on their own computer. Buzz starts
 that local CLI with `devin acp`; it does not copy Devin credentials between
 users or machines.
 
-- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.2)
+- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.3)
 - [Builder installation guide](docs/buzz-for-devin-builders.md)
 - [Devin integration notes](DEVIN.md)
 - [Upstream proposal](https://github.com/block/buzz/pull/3225)
@@ -52,7 +52,7 @@ Then clone the reviewed source alpha and run it:
 ```sh
 git clone https://github.com/fenner888/BuzzforDevin.git
 cd BuzzforDevin
-git checkout buzz-for-devin-v0.4.25-alpha.2
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.3
 ./scripts/run-buzz-for-devin-source.sh
 ```
 
