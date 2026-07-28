@@ -47,10 +47,13 @@ runtimes retain their existing behavior. Buzz does not automatically switch
 Devin into a bypass mode, grant persistent approval, or edit Devin permission
 configuration.
 
-The project publishes an immutable source-only technical alpha, not an unsigned
-binary download or production-ready public release. The installed Apple Silicon
-bundle proves that the packaged desktop launches its sibling `buzz-acp`, which
-in turn launches the official `devin acp`. A same-name development-agent DM was
+The project publishes an immutable source-only technical alpha, not a prebuilt
+binary download or production-ready public release. Apple Silicon builders can
+use the one-command source installer to build, ad-hoc sign, and install a normal
+app under `~/Applications`; no Apple Developer identity or Gatekeeper bypass is
+used. The installed Apple Silicon bundle proves that the packaged desktop
+launches its sibling `buzz-acp`, which in turn launches the official
+`devin acp`. A same-name development-agent DM was
 identified as a separate public identity; opening a DM from the installed
 agent's own profile created the correct membership and delivered the prompt.
 That turn initialized without Buzz's previous forced-model warning. A corrected

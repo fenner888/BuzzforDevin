@@ -284,8 +284,10 @@ visible.
 
 ## Distribution boundary
 
-- The source build is unsigned and updater-disabled. It is for development
-  validation only.
+- The source release does not contain a downloadable binary and the in-app
+  updater remains disabled. The Apple Silicon source installer applies a local
+  ad-hoc signature after building; it uses no Apple Developer identity,
+  notarization credential, or Gatekeeper bypass.
 - Install and upgrade validate the product name, bundle identifier, deep-link
   scheme, and every bundled executable before changing the installed app.
 - Installation stages on the destination filesystem and switches only after
@@ -563,7 +565,10 @@ The final local Apple Silicon source build also passed:
 - Fork builds link manual updates and web downloads to
   `fenner888/BuzzforDevin`; ordinary upstream builds retain Block's release
   URLs.
-- The bundle is unsigned as expected for a source build.
+- The originally inspected bundle was unsigned as expected for the low-level
+  build command. The later one-command source installer ad-hoc signs the same
+  locally built bundle before installing it; this is not Developer ID signing
+  or notarization.
 - A separate local Developer ID rehearsal signed every bundled executable, the
   app, and `Buzz for Devin_0.4.25_aarch64.dmg` with
   `Developer ID Application: Mark Fenner (Q7H78WYTAR)`. Strict code-signature,

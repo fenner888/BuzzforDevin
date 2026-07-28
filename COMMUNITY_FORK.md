@@ -72,8 +72,9 @@ logic should be removed from this fork.
 
 The pre-merge testing path is source-first, matching the way other Buzz harness
 presets can be exercised before upstream merge. Builders use an immutable source
-tag and run the reviewed checkout directly; this fork does not redistribute an
-unsigned application.
+tag. Apple Silicon builders can create an ad-hoc-signed app locally, while
+other supported builder hosts run the reviewed checkout directly. This fork
+does not redistribute a prebuilt application.
 
 The cross-platform source-preview instructions are in
 [docs/buzz-for-devin-builders.md](docs/buzz-for-devin-builders.md). Apple

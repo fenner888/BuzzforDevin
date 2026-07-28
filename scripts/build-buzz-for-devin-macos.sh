@@ -6,14 +6,40 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 . "$REPO_ROOT/bin/activate-hermit"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Error: the initial Buzz for Devin source build supports macOS only." >&2
+  echo "Error: the Buzz for Devin source build supports macOS only." >&2
   exit 1
 fi
 
 TARGET=${1:-aarch64-apple-darwin}
 if [[ "$TARGET" != "aarch64-apple-darwin" ]]; then
-  echo "Error: the initial release target must be aarch64-apple-darwin, got '$TARGET'." >&2
+  echo "Error: the source-install target must be aarch64-apple-darwin, got '$TARGET'." >&2
   exit 1
+fi
+
+# Cognition's installer uses this location. Include it explicitly because a
+# freshly installed CLI may not be visible to the invoking shell yet.
+case ":${PATH:-}:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:${PATH:-}" ;;
+esac
+
+# Cargo's internal Git transport can ignore a session-only Git configuration
+# override. Use the installed Git CLI and, unless the caller already supplied an
+# explicit override, ignore global URL rewrites while fetching public
+# dependencies. This never changes the user's Git configuration.
+export CARGO_NET_GIT_FETCH_WITH_CLI="${CARGO_NET_GIT_FETCH_WITH_CLI:-true}"
+export GIT_CONFIG_GLOBAL="${GIT_CONFIG_GLOBAL:-/dev/null}"
+
+PNPM_COMMAND=(pnpm)
+if ! pnpm --version >/dev/null 2>&1; then
+  if command -v corepack >/dev/null 2>&1 && \
+    (cd "$REPO_ROOT" && corepack pnpm --version >/dev/null 2>&1); then
+    PNPM_COMMAND=(corepack pnpm)
+    echo "Hermit pnpm is unavailable on this host; using the pinned Corepack pnpm."
+  else
+    echo "Error: pinned pnpm is unavailable through both Hermit and Corepack." >&2
+    exit 1
+  fi
 fi
 
 export BUZZ_BUILD_KEYRING_SERVICE="buzz-for-devin-desktop"
@@ -26,11 +52,12 @@ export VITE_BUZZ_RELEASES_URL="https://github.com/fenner888/BuzzforDevin/release
 export VITE_BUZZ_RELEASES_API_URL="https://api.github.com/repos/fenner888/BuzzforDevin/releases?per_page=10"
 export MACOSX_DEPLOYMENT_TARGET="11.0"
 export CMAKE_OSX_DEPLOYMENT_TARGET="11.0"
+export CMAKE_POLICY_VERSION_MINIMUM="3.5"
 unset BUZZ_UPDATER_PUBLIC_KEY BUZZ_UPDATER_ENDPOINT
 unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 
 cd "$REPO_ROOT"
-pnpm install --frozen-lockfile
+"${PNPM_COMMAND[@]}" install --frozen-lockfile
 cargo build --release --target "$TARGET" \
   -p buzz-acp \
   -p buzz-agent \
@@ -44,7 +71,7 @@ done
 
 cd "$REPO_ROOT/desktop"
 node scripts/build-buzz-for-devin-config.mjs
-pnpm tauri build \
+"${PNPM_COMMAND[@]}" exec tauri build \
   --verbose \
   --no-sign \
   --target "$TARGET" \

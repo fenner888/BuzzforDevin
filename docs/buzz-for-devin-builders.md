@@ -2,8 +2,9 @@
 
 Buzz for Devin can be run directly from GitHub while the focused upstream
 integration is under review. This is the same source-first testing model used
-for Buzz harness presets before they merge. There is no unsigned application
-download to redistribute.
+for Buzz harness presets before they merge. There is no prebuilt application
+download to redistribute; Apple Silicon users can build and ad-hoc sign an
+installed app locally from the reviewed tag.
 
 This project is an unofficial community fork. It is not an official Block or
 Cognition product.
@@ -12,9 +13,9 @@ Cognition product.
 
 Use the immutable source prerelease:
 
-- Tag: `buzz-for-devin-v0.4.25-alpha.4`
+- Tag: `buzz-for-devin-v0.4.25-alpha.5`
 - Release:
-  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.4>
+  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.5>
 - Focused upstream proposal:
   <https://github.com/block/buzz/pull/3225>
 
@@ -26,13 +27,13 @@ host their own relay can still follow Buzz's normal self-host instructions.
 
 | Host | Source preview | Fork-specific evidence | Current support statement |
 |---|---|---|---|
-| Apple Silicon macOS | Available | Full CI, packaged source build, and live Devin ACP acceptance passed | Verified technical alpha |
+| Apple Silicon macOS | Installed source app available | Full CI, packaged source build, lifecycle, and live Devin ACP acceptance passed | Verified technical alpha |
 | Intel macOS | Available | Buzz and Devin provide host binaries; fork-specific live acceptance is pending | Experimental |
 | Linux x86_64 / ARM64 | Available | Linux compilation and desktop CI pass; live Devin ACP acceptance is pending | Experimental |
 | Windows x86_64 | Available through Git Bash with the MSVC toolchain | Windows Rust, Tauri, and shell gates pass; live Devin ACP acceptance is pending | Experimental |
 
-`Available` means a builder can compile and run the source preview. It does not
-mean that this fork publishes a supported installer for that platform.
+`Available` means a builder can compile the reviewed source. It does not mean
+that this fork publishes a supported prebuilt installer for that platform.
 
 ## Security boundary
 
@@ -47,7 +48,9 @@ mean that this fork publishes a supported installer for that platform.
 - New agents default to one worker and owner-only invocation.
 - Devin permission requests remain explicit and fail closed. The runner does
   not enable a permission-bypass mode.
-- The source preview does not enable the updater or use signing credentials.
+- The source preview does not enable the in-app updater or use signing
+  credentials. The macOS source installer applies a local ad-hoc signature; it
+  does not use an Apple Developer identity or notarization credentials.
 - Debug source runs use Buzz's development-only Keychain and Nest namespaces.
   The separately built macOS alpha application uses the full
   `community.buzzfordevin.desktop` release isolation described in
@@ -58,7 +61,7 @@ mean that this fork publishes a supported installer for that platform.
 ```sh
 git clone https://github.com/fenner888/BuzzforDevin.git
 cd BuzzforDevin
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.4
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.5
 ```
 
 The named local branch avoids Git's detached-HEAD warning while preserving the
@@ -78,8 +81,8 @@ Use this session-only bypass and a fresh clone directory:
 export GIT_CONFIG_GLOBAL=/dev/null
 git clone https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-clean
 cd BuzzforDevin-clean
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.4
-./scripts/run-buzz-for-devin-source.sh
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.5
+./scripts/install-macos-source.sh
 ```
 
 The launcher makes Cargo use the normal Git command for public Rust
@@ -117,16 +120,31 @@ On Intel Macs, where pnpm no longer publishes the standalone archive Hermit
 expects, the source launcher automatically uses the same pinned pnpm version
 through the repository's Corepack toolchain.
 
-From the repository root:
+Apple Silicon users can create a normal locally installed application from the
+reviewed tag:
+
+```sh
+./scripts/install-macos-source.sh
+```
+
+The command needs about 15 GB of temporary free space and normally takes 15–30
+minutes on the first build. It creates an ad-hoc-signed
+`~/Applications/Buzz for Devin.app`; no paid Apple Developer membership or
+Gatekeeper bypass is used. Later launches open that app without recompiling.
+Do not redistribute the locally built bundle.
+
+Update, repair, rollback, and uninstall instructions are in
+[Buzz for Devin on macOS](buzz-for-devin-macos.md).
+
+Intel Mac builders continue to use the development source preview:
 
 ```sh
 ./scripts/run-buzz-for-devin-source.sh
 ```
 
-Apple Silicon builders who need the isolated unsigned `.app` lifecycle instead
-of a source preview should follow
-[Buzz for Devin on macOS](buzz-for-devin-macos.md). Do not redistribute that
-locally built unsigned application.
+Because this launches an unbundled development executable, macOS may display
+its Dock icon as a square. The Apple Silicon source installer produces the
+normal packaged application icon.
 
 ## Linux
 
