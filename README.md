@@ -8,7 +8,7 @@ Each person installs and authenticates Devin on their own computer. Buzz starts
 that local CLI with `devin acp`; it does not copy Devin credentials between
 users or machines.
 
-- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.3)
+- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.4)
 - [Builder installation guide](docs/buzz-for-devin-builders.md)
 - [Devin integration notes](DEVIN.md)
 - [Upstream proposal](https://github.com/block/buzz/pull/3225)
@@ -52,9 +52,14 @@ Then clone the reviewed source alpha and run it:
 ```sh
 git clone https://github.com/fenner888/BuzzforDevin.git
 cd BuzzforDevin
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.3
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.4
 ./scripts/run-buzz-for-devin-source.sh
 ```
+
+If cloning unexpectedly asks for credentials at `git-manager.devin.ai`, do not
+enter them. A local Git URL rewrite is intercepting the public GitHub URL. See
+the [builder guide](docs/buzz-for-devin-builders.md#github-url-redirects) for a
+session-only bypass that does not modify credentials or permanent Git settings.
 
 The source preview connects to an existing Buzz community selected during
 onboarding. A local relay and Docker are not required unless you want to
