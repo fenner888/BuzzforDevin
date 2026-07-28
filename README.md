@@ -28,14 +28,17 @@ configuration and credentials.
 
 ## Run the source preview
 
-Install and authenticate the
-[official Devin CLI](https://docs.devin.ai/cli):
+Buzz uses your existing authenticated
+[official Devin CLI](https://docs.devin.ai/cli). Confirm it is ready under the
+same computer account that will run Buzz:
 
 ```sh
-curl -fsSL https://cli.devin.ai/install.sh | bash
-devin auth login
 devin auth status
 ```
+
+If that command reports that the CLI is missing or unauthenticated, follow the
+official Devin CLI documentation to install it or run `devin auth login`.
+Otherwise, no Devin setup is needed.
 
 Then clone the reviewed source alpha and run it:
 
