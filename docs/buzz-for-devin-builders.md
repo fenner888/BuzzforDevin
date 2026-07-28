@@ -12,9 +12,9 @@ Cognition product.
 
 Use the immutable source prerelease:
 
-- Tag: `buzz-for-devin-v0.4.25-alpha.3`
+- Tag: `buzz-for-devin-v0.4.25-alpha.4`
 - Release:
-  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.3>
+  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.4>
 - Focused upstream proposal:
   <https://github.com/block/buzz/pull/3225>
 
@@ -58,12 +58,33 @@ mean that this fork publishes a supported installer for that platform.
 ```sh
 git clone https://github.com/fenner888/BuzzforDevin.git
 cd BuzzforDevin
-git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.3
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.4
 ```
 
 The named local branch avoids Git's detached-HEAD warning while preserving the
 reviewed tag as its starting point. Do not test an arbitrary moving branch when
 reporting a compatibility result. Include the tag and commit in every report.
+
+### GitHub URL redirects
+
+A public clone of this repository does not require a username or password. If
+Git instead asks for credentials at `git-manager.devin.ai`, stop the prompt
+with Control-C. A local Git URL rewrite is intercepting the GitHub URL before
+Buzz is downloaded.
+
+Use this session-only bypass and a fresh clone directory:
+
+```sh
+export GIT_CONFIG_GLOBAL=/dev/null
+git clone https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-clean
+cd BuzzforDevin-clean
+git switch -c buzz-for-devin-preview buzz-for-devin-v0.4.25-alpha.4
+./scripts/run-buzz-for-devin-source.sh
+```
+
+The launcher makes Cargo use the normal Git command for public Rust
+dependencies, so Cargo honors the same override. This bypass does not modify
+Devin configuration, credentials, or permanent Git settings.
 
 ## Confirm Devin CLI readiness
 

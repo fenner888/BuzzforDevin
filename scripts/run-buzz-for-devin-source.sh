@@ -69,6 +69,11 @@ for required in cargo node rustc; do
   fi
 done
 
+# Cargo's internal Git transport can ignore GIT_CONFIG_GLOBAL and read a stale
+# URL rewrite from ~/.gitconfig. Use the installed Git CLI for public Git
+# dependencies so an explicit Git configuration override is honored.
+export CARGO_NET_GIT_FETCH_WITH_CLI="${CARGO_NET_GIT_FETCH_WITH_CLI:-true}"
+
 PNPM_COMMAND=(pnpm)
 if ! pnpm --version >/dev/null 2>&1; then
   # pnpm 11 no longer publishes a standalone Intel macOS archive, so Hermit's
