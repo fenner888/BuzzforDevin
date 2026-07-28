@@ -42,6 +42,14 @@ case "$HOST_OS" in
     # Hermit supplies the repository-pinned Rust, Node, and pnpm toolchains.
     # shellcheck disable=SC1091
     . "$REPO_ROOT/bin/activate-hermit"
+
+    # Cognition's installer places Devin at ~/.local/bin/devin. A freshly
+    # installed CLI can exist there before the user's current shell has picked
+    # up the PATH change, so make the official location available explicitly.
+    case ":${PATH:-}:" in
+      *":$HOME/.local/bin:"*) ;;
+      *) export PATH="$HOME/.local/bin:${PATH:-}" ;;
+    esac
     ;;
   MINGW64_NT* | MINGW32_NT* | MSYS_NT* | CYGWIN*)
     # Hermit's bootstrapper is macOS/Linux-only. Windows builders bring the

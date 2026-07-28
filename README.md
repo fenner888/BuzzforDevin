@@ -36,9 +36,16 @@ same computer account that will run Buzz:
 devin auth status
 ```
 
-If that command reports that the CLI is missing or unauthenticated, follow the
-official Devin CLI documentation to install it or run `devin auth login`.
-Otherwise, no Devin setup is needed.
+If `devin` is not found on macOS, Linux, or WSL, install it using Cognition's
+official installer, then open a new terminal:
+
+```sh
+curl -fsSL https://cli.devin.ai/install.sh | bash
+```
+
+If Devin is installed but unauthenticated, run `devin auth login`. Otherwise,
+no Devin setup is needed. The source-preview launcher also checks the official
+`~/.local/bin` installation location automatically.
 
 Then clone the reviewed source alpha and run it:
 
