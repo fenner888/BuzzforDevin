@@ -16,8 +16,6 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 INSTALL_ROOT=${BUZZ_FOR_DEVIN_INSTALL_ROOT:-"$HOME/Applications"}
 LOG_FILE=${BUZZ_FOR_DEVIN_INSTALL_LOG:-"$HOME/buzz-for-devin-install.log"}
-TARGET=aarch64-apple-darwin
-APP_PATH="$REPO_ROOT/desktop/src-tauri/target/$TARGET/release/bundle/macos/Buzz for Devin.app"
 INSTALLED_APP="$INSTALL_ROOT/Buzz for Devin.app"
 
 usage() {
@@ -47,7 +45,20 @@ case "${1:-}" in
 esac
 
 [[ "$(uname -s)" == "Darwin" ]] || die "This installer supports macOS only."
-[[ "$(uname -m)" == "arm64" ]] || die "This installer currently requires Apple Silicon (arm64)."
+case "$(uname -m)" in
+  arm64)
+    TARGET=aarch64-apple-darwin
+    EXPECTED_ARCH=arm64
+    ;;
+  x86_64)
+    TARGET=x86_64-apple-darwin
+    EXPECTED_ARCH=x86_64
+    ;;
+  *)
+    die "This installer supports Apple Silicon (arm64) and Intel (x86_64) Macs only."
+    ;;
+esac
+APP_PATH="$REPO_ROOT/desktop/src-tauri/target/$TARGET/release/bundle/macos/Buzz for Devin.app"
 
 for required in git codesign file xcode-select; do
   command -v "$required" >/dev/null 2>&1 || die "'$required' is required."
@@ -87,6 +98,7 @@ log "Build log: $LOG_FILE"
 devin --version 2>&1 | tee -a "$LOG_FILE"
 log "Buzz will check Devin authentication readiness during onboarding."
 
+export BUZZ_FOR_DEVIN_EXPECTED_ARCH="$EXPECTED_ARCH"
 "$SCRIPT_DIR/build-buzz-for-devin-macos.sh" "$TARGET" 2>&1 | tee -a "$LOG_FILE"
 [[ -d "$APP_PATH" ]] || die "No application bundle was produced. Check $LOG_FILE."
 
@@ -101,5 +113,5 @@ log ""
 log "Buzz for Devin installed successfully."
 log "Application: $INSTALLED_APP"
 log "Launch it with: open \"$INSTALLED_APP\""
-log "The first build can take 15-30 minutes; later launches use the installed app."
+log "The first build can take 15-45 minutes depending on the Mac; later launches use the installed app."
 log "No Devin configuration or credentials were modified."

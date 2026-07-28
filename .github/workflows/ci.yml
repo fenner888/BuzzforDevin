@@ -995,6 +995,10 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: cashapp/activate-hermit@cea9af7913204a965fd488637a8d1811bba2e616 # v1
+      - name: Test Buzz for Devin macOS source installer contracts
+        run: |
+          ./scripts/test-buzz-for-devin-source-installer.sh
+          ./scripts/test-buzz-for-devin-macos-signer.sh
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: desktop/src-tauri

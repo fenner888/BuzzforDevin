@@ -25,7 +25,14 @@ done
 
 "$SCRIPT_DIR/verify-buzz-for-devin-macos-app.sh" "$APP_PATH" >/dev/null
 
+MAIN_EXECUTABLE="$APP_PATH/Contents/MacOS/buzz-desktop"
 while IFS= read -r -d '' candidate; do
+  # codesign treats the bundle's main executable as the enclosing application.
+  # Sign every nested Mach-O first, then let the final app signing operation
+  # sign the main executable and seal the bundle.
+  if [[ "$candidate" == "$MAIN_EXECUTABLE" ]]; then
+    continue
+  fi
   if file "$candidate" | grep -q "Mach-O"; then
     codesign --force --sign - --timestamp=none "$candidate"
   fi

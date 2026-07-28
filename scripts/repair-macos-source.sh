@@ -13,10 +13,13 @@ die() {
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
-TARGET=aarch64-apple-darwin
 
 [[ "$(uname -s)" == "Darwin" ]] || die "This repair command supports macOS only."
-[[ "$(uname -m)" == "arm64" ]] || die "This repair command currently requires Apple Silicon (arm64)."
+case "$(uname -m)" in
+  arm64) TARGET=aarch64-apple-darwin ;;
+  x86_64) TARGET=x86_64-apple-darwin ;;
+  *) die "This repair command supports Apple Silicon (arm64) and Intel (x86_64) Macs only." ;;
+esac
 
 cd "$REPO_ROOT"
 git diff --quiet HEAD || die "Checkout has tracked changes. Use a clean release tag."

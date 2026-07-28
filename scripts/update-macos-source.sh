@@ -18,7 +18,10 @@ PUBLIC_REPOSITORY=https://github.com/fenner888/BuzzforDevin.git
 TARGET_TAG=${1:-}
 
 [[ "$(uname -s)" == "Darwin" ]] || die "This updater supports macOS only."
-[[ "$(uname -m)" == "arm64" ]] || die "This updater currently requires Apple Silicon (arm64)."
+case "$(uname -m)" in
+  arm64 | x86_64) ;;
+  *) die "This updater supports Apple Silicon (arm64) and Intel (x86_64) Macs only." ;;
+esac
 [[ -n "$TARGET_TAG" ]] || die "Usage: $0 <buzz-for-devin-release-tag>"
 [[ "$TARGET_TAG" == buzz-for-devin-v* ]] || die "'$TARGET_TAG' is not a Buzz for Devin release tag."
 

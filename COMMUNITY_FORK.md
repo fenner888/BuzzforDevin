@@ -72,15 +72,15 @@ logic should be removed from this fork.
 
 The pre-merge testing path is source-first, matching the way other Buzz harness
 presets can be exercised before upstream merge. Builders use an immutable source
-tag. Apple Silicon builders can create an ad-hoc-signed app locally, while
-other supported builder hosts run the reviewed checkout directly. This fork
-does not redistribute a prebuilt application.
+tag. Apple Silicon and Intel Mac builders can create an ad-hoc-signed app
+locally, while other supported builder hosts run the reviewed checkout directly.
+This fork does not redistribute a prebuilt application.
 
 The cross-platform source-preview instructions are in
 [docs/buzz-for-devin-builders.md](docs/buzz-for-devin-builders.md). Apple
-Silicon has completed live acceptance. Intel macOS, Linux, and Windows remain
-experimental until a real builder completes the documented Devin ACP acceptance
-on each host.
+Silicon has completed live acceptance. The Intel installed-app path, Linux, and
+Windows remain experimental until a real builder completes the documented Devin
+ACP acceptance on each host.
 
 The initial packaged distribution target remains a locally built macOS
 application installed under `~/Applications`. It uses immutable source tags and

@@ -27,7 +27,7 @@ The artifact must contain:
 - Sidecars `buzz`, `buzz-acp`, `buzz-agent`, `buzz-dev-mcp`, and
   `git-credential-nostr`
 
-The release must retain the unofficial community-project disclaimer and must
+The release must retain the community-project disclaimer and must
 not claim cloud Devin, Fusion, fan-out, Outposts, or local-to-cloud handoff
 capability.
 
@@ -204,7 +204,7 @@ Publication requires explicit owner approval after every preceding gate passes.
    and updater artifacts from the protected release environment.
 4. Verify downloads, checksum, Gatekeeper acceptance, and updater URLs after
    publication.
-5. Publish known limitations and the unofficial-project disclaimer.
+5. Publish known limitations and the community-project disclosure.
 6. Preserve the previous signed release for rollback.
 7. Do not create a public community or invite beta users until release
    acceptance is recorded.

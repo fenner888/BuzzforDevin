@@ -5,7 +5,7 @@
 
 ## Buzz for Devin `vX.Y.Z`
 
-Buzz for Devin is an unofficial community distribution of Buzz that adds the
+Buzz for Devin is a community-maintained distribution of Buzz that adds the
 official Devin CLI as a native local Agent Client Protocol runtime while
 preserving Buzz's existing relay, identity, channel, and managed-agent
 architecture.
