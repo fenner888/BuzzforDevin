@@ -8,7 +8,7 @@ Each person installs and authenticates Devin on their own computer. Buzz starts
 that local CLI with `devin acp`; it does not copy Devin credentials between
 users or machines.
 
-- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.6)
+- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.7)
 - [Builder installation guide](docs/buzz-for-devin-builders.md)
 - [Devin integration notes](DEVIN.md)
 - [Upstream proposal](https://github.com/block/buzz/pull/3225)
@@ -53,9 +53,9 @@ local installer:
 ```sh
 cd "$HOME" &&
 GIT_CONFIG_GLOBAL=/dev/null git clone \
-  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha6 &&
-cd BuzzforDevin-alpha6 &&
-git switch -c buzz-for-devin-alpha6 buzz-for-devin-v0.4.25-alpha.6 &&
+  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha7 &&
+cd BuzzforDevin-alpha7 &&
+git switch -c buzz-for-devin-alpha7 buzz-for-devin-v0.4.25-alpha.7 &&
 ./scripts/install-macos-source.sh
 ```
 
@@ -63,8 +63,9 @@ The first build normally takes 15–45 minutes depending on the Mac and requires
 approximately 15 GB of temporary free space. It builds the reviewed source for
 the Mac's native architecture, ad-hoc signs the result locally, and installs
 `~/Applications/Buzz for Devin.app`. It does not require a paid Apple
-Developer account or bypass Gatekeeper. After installation, open the normal
-app; later launches do not recompile it. The commands are intentionally chained:
+Developer account or bypass Gatekeeper. The installer opens the app
+automatically when the build completes; later launches do not recompile it.
+The commands are intentionally chained:
 if the public clone fails, checkout and installation do not continue in a
 partial directory.
 
