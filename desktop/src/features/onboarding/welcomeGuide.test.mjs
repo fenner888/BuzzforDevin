@@ -156,7 +156,7 @@ test("starter persona activation is serialized to protect the shared store", asy
   assert.deepEqual(calls, ["builtin:fizz", "builtin:honey", "builtin:bumble"]);
 });
 
-test("all Welcome starters use the onboarding runtime preference", async () => {
+test("all Welcome starters use the explicitly selected onboarding runtime preference", async () => {
   const claude = {
     id: "claude",
     label: "Claude",

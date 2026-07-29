@@ -29,8 +29,8 @@ import {
   OnboardingSlideTransition,
 } from "./OnboardingSlideTransition";
 import {
+  getDefaultConfigOnboardingRuntimes,
   getReadyOnboardingRuntimes,
-  getVisibleOnboardingRuntimes,
 } from "./onboardingRuntimeSelection";
 import type { DefaultConfigStepActions } from "./types";
 
@@ -61,6 +61,7 @@ function AgentDefaultsSection({
   const [isLoading, setIsLoading] = React.useState(true);
   const [isCustomProvider, setIsCustomProvider] = React.useState(false);
   const [isCustomModelEditing, setIsCustomModelEditing] = React.useState(false);
+  const [configIsValid, setConfigIsValid] = React.useState(false);
   const [bakedEnv, setBakedEnv] = React.useState<BakedEnvEntry[]>([]);
   const coalescerRef = React.useRef<{
     enqueue: (value: GlobalAgentConfig) => void;
@@ -122,23 +123,23 @@ function AgentDefaultsSection({
           ),
     [readyRuntimeIds, runtimesQuery.data],
   );
-  const readyRuntimeIdSet = React.useMemo(
-    () => new Set(effectiveReadyRuntimeIds),
-    [effectiveReadyRuntimeIds],
-  );
-  // Setup already confirmed readiness. Re-filter only for onboarding
-  // visibility here; a transient auth recheck must not invalidate that handoff.
-  const readyRuntimes = React.useMemo(
+  // Setup already confirmed external CLI readiness. The defaults page also
+  // offers ready bundled harnesses so selecting an external CLI does not
+  // silently make it the engine for every starter persona.
+  const selectableRuntimes = React.useMemo(
     () =>
-      getVisibleOnboardingRuntimes(runtimesQuery.data ?? []).filter((runtime) =>
-        readyRuntimeIdSet.has(runtime.id),
+      getDefaultConfigOnboardingRuntimes(
+        runtimesQuery.data ?? [],
+        effectiveReadyRuntimeIds,
       ),
-    [readyRuntimeIdSet, runtimesQuery.data],
+    [effectiveReadyRuntimeIds, runtimesQuery.data],
   );
   const selectedRuntime = React.useMemo(
     () =>
-      readyRuntimes.find((runtime) => runtime.id === config.preferred_runtime),
-    [config.preferred_runtime, readyRuntimes],
+      selectableRuntimes.find(
+        (runtime) => runtime.id === config.preferred_runtime,
+      ),
+    [config.preferred_runtime, selectableRuntimes],
   );
   const selectedRuntimeId = selectedRuntime?.id ?? "";
   const { data: runtimeFileConfig } =
@@ -149,19 +150,20 @@ function AgentDefaultsSection({
     runtimesQuery.isError ||
     (!configSurfaceLoading &&
       effectiveReadyRuntimeIds.length > 0 &&
-      readyRuntimes.length === 0);
+      selectableRuntimes.length === 0);
   const harnessOptions = React.useMemo(
     () =>
-      readyRuntimes.map((runtime) => ({
+      selectableRuntimes.map((runtime) => ({
         label: formatHarnessLabel(runtime),
         value: runtime.id,
       })),
-    [readyRuntimes],
+    [selectableRuntimes],
   );
 
   const handleHarnessChange = React.useCallback(
     (runtimeId: string) => {
       const next = resetConfigForHarnessChange(config, runtimeId);
+      setConfigIsValid(false);
       setIsCustomModelEditing(false);
       setIsCustomProvider(false);
       setConfig(next);
@@ -170,27 +172,22 @@ function AgentDefaultsSection({
     [config],
   );
 
-  React.useEffect(() => {
-    if (configSurfaceLoading || selectedRuntimeId) return;
-    if (readyRuntimes.length !== 1) return;
-    handleHarnessChange(readyRuntimes[0].id);
-  }, [
-    configSurfaceLoading,
-    handleHarnessChange,
-    readyRuntimes,
-    selectedRuntimeId,
-  ]);
-
   const flushPersistence = React.useCallback(
     () => coalescerRef.current?.flush() ?? Promise.resolve(),
     [],
   );
   React.useEffect(() => {
     onPersistenceStateChange({
-      canComplete: selectedRuntimeId.length > 0 && !isSaving,
+      canComplete: selectedRuntimeId.length > 0 && configIsValid && !isSaving,
       flush: flushPersistence,
     });
-  }, [flushPersistence, isSaving, onPersistenceStateChange, selectedRuntimeId]);
+  }, [
+    configIsValid,
+    flushPersistence,
+    isSaving,
+    onPersistenceStateChange,
+    selectedRuntimeId,
+  ]);
 
   return (
     <section className="w-full space-y-4 text-left text-sm">
@@ -239,10 +236,12 @@ function AgentDefaultsSection({
             }}
             onCustomModelEditingChange={setIsCustomModelEditing}
             onIsCustomProviderChange={setIsCustomProvider}
+            onValidityChange={setConfigIsValid}
             placeholderClassName="text-foreground/70"
             runtimeFileConfig={runtimeFileConfig}
             selectClassName="h-12 rounded-2xl border-foreground/15 bg-white px-4 py-2 text-sm shadow-none hover:bg-white/95"
             disclosure="onboarding-essential"
+            key={selectedRuntimeId}
             unstyled
             useCustomSelect
           />
@@ -292,12 +291,12 @@ export function DefaultConfigStep({
     >
       <div className="w-full max-w-[500px] text-center">
         <h1 className="text-title font-normal text-foreground">
-          Configure your default model settings
+          Choose how your agents run
         </h1>
         <p className="mx-auto mt-3 max-w-[440px] text-sm leading-5 text-foreground/80">
-          This will be set as your default model configuration across Buzz. You
-          can always change this in your Settings or give specific agents a
-          different configuration.
+          This default harness powers Fizz, Honey, Bumble, and other agents set
+          to Runtime default. It uses the account and usage plan connected to
+          that harness. You can give any agent a different harness later.
         </p>
       </div>
 

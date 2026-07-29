@@ -67,7 +67,11 @@ with a TypeScript lookup table or an id comparison in a component.
 7. **Onboarding setup detects readiness; it does not select defaults.** The
    setup page derives visible and ready harnesses from the runtime catalog and
    only offers install or sign-in actions. The following defaults page is the
-   sole onboarding surface that chooses and persists `preferred_runtime`.
+   sole onboarding surface that chooses and persists `preferred_runtime`. It
+   also offers ready bundled harnesses (`requires_external_cli = false`) even
+   when their catalog entry is hidden from setup, and it requires an explicit
+   harness choice. This prevents installing or authenticating one external CLI
+   from silently making it the engine for every unpinned starter persona.
    `onboarding-agent-defaults.spec.ts` is the acceptance gate for anything
    touching this flow or the shared renderer.
 8. **Omit the Model control only after a confirmed successful empty

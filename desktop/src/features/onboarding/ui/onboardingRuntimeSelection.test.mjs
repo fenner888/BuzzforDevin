@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getDefaultConfigOnboardingRuntimes,
   getReadyOnboardingRuntimes,
   getVisibleOnboardingRuntimes,
   runtimeIsReadyForOnboarding,
@@ -12,13 +13,18 @@ function runtime(
   id,
   availability,
   status,
-  { onboardingVisible = true, sortPriority = 100 } = {},
+  {
+    onboardingVisible = true,
+    requiresExternalCli = true,
+    sortPriority = 100,
+  } = {},
 ) {
   return {
     id,
     availability,
     authStatus: { status },
     onboardingVisible,
+    requiresExternalCli,
     sortPriority,
   };
 }
@@ -111,6 +117,45 @@ test("ready onboarding runtimes exclude hidden ready harnesses", () => {
 
   assert.deepEqual(
     getReadyOnboardingRuntimes(runtimes).map(({ id }) => id),
+    ["claude"],
+  );
+});
+
+test("default config offers a ready bundled harness alongside ready external CLIs", () => {
+  const runtimes = [
+    runtime("buzz-agent", "available", "not_applicable", {
+      onboardingVisible: false,
+      requiresExternalCli: false,
+      sortPriority: 0,
+    }),
+    runtime("goose", "available", "not_applicable", {
+      onboardingVisible: false,
+      sortPriority: 10,
+    }),
+    runtime("devin", "available", "logged_in", { sortPriority: 20 }),
+    runtime("claude", "available", "logged_in", { sortPriority: 30 }),
+  ];
+
+  assert.deepEqual(
+    getDefaultConfigOnboardingRuntimes(runtimes, ["devin"]).map(({ id }) => id),
+    ["buzz-agent", "devin"],
+  );
+});
+
+test("default config excludes unavailable bundled and unconfirmed external harnesses", () => {
+  const runtimes = [
+    runtime("bundled-offline", "not_installed", "not_applicable", {
+      onboardingVisible: false,
+      requiresExternalCli: false,
+    }),
+    runtime("claude", "available", "logged_in"),
+    runtime("codex", "available", "logged_in"),
+  ];
+
+  assert.deepEqual(
+    getDefaultConfigOnboardingRuntimes(runtimes, ["claude"]).map(
+      ({ id }) => id,
+    ),
     ["claude"],
   );
 });

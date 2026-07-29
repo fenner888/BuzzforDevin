@@ -36,6 +36,16 @@ Buzz's generic `BUZZ_ACP_MODEL` bootstrap value from being passed to Devin;
 Devin's official ACP server owns model selection. Existing Claude, Codex,
 Goose, Buzz Agent, and custom-runtime bootstrap behavior is unchanged.
 
+Runtime readiness no longer silently selects an external CLI as the global
+agent default. First-run configuration explicitly explains that Fizz, Honey,
+Bumble, and other unpinned personas inherit the selected default harness. It
+offers Buzz's bundled agent alongside ready external runtimes, using
+catalog-projected capability facts, so a builder may keep the starter personas
+on Buzz Agent while creating a separate Devin-backed agent. Buzz Agent still
+requires the builder to configure its own supported model provider and
+credentials; the fork does not provide shared model access. Existing saved
+defaults are preserved.
+
 Devin's catalog entry disables the harness's historical permission
 auto-approval and enforces `default` mode. When Devin requests permission,
 Buzz presents the agent owner with exact per-request **Allow once** and
