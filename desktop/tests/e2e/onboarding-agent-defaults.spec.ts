@@ -34,6 +34,7 @@ function runtime(
     install_hint: `Install ${id}`,
     install_instructions_url: "https://example.com",
     can_auto_install: true,
+    requires_external_cli: id !== "buzz-agent",
     underlying_cli_path: null,
     node_required: false,
     auth_status: authStatus,
@@ -62,6 +63,17 @@ async function readSavedRuntime(page: Parameters<typeof installMockBridge>[0]) {
     ).__BUZZ_E2E_INVOKE_MOCK_COMMAND__?.("get_global_agent_config", null);
     return result?.preferred_runtime ?? null;
   });
+}
+
+async function chooseDefaultHarness(
+  page: Parameters<typeof installMockBridge>[0],
+  runtimeId: string,
+) {
+  const harness = page.getByTestId("global-agent-default-harness");
+  await harness.click();
+  await page
+    .getByTestId(`global-agent-default-harness-option-${runtimeId}`)
+    .click();
 }
 
 test("setup projects catalog visibility and ordering, including Devin", async ({
@@ -533,6 +545,8 @@ test("defaults waits for baked configuration before rendering fields", async ({
   await page.getByTestId("onboarding-setup-next").click();
 
   await expect(page.getByText("Loading…")).toBeVisible();
+  await expect(page.getByText("Loading…")).toHaveCount(0);
+  await chooseDefaultHarness(page, "claude");
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
   );
@@ -559,6 +573,7 @@ test("defaults renders only fields supported by the selected harness", async ({
   await page.goto("/");
   await navigateToSetupPage(page);
   await page.getByTestId("onboarding-setup-next").click();
+  await chooseDefaultHarness(page, "claude");
 
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
@@ -599,6 +614,7 @@ test("defaults hides model when optional harness has empty discovery", async ({
   await page.getByTestId("onboarding-setup-next").click();
 
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
+  await chooseDefaultHarness(page, "claude");
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
   );
@@ -632,6 +648,7 @@ test("defaults keeps model control when optional harness discovery fails", async
   await page.getByTestId("onboarding-setup-next").click();
 
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
+  await chooseDefaultHarness(page, "claude");
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
   );
@@ -659,7 +676,7 @@ test("defaults Back returns to harness setup", async ({ page }) => {
   await expect(page.getByTestId("onboarding-page-2")).toBeVisible();
 });
 
-test("defaults auto-selects the only ready visible harness", async ({
+test("defaults offers bundled Buzz Agent and requires an explicit harness choice", async ({
   page,
 }) => {
   await installMockBridge(
@@ -678,7 +695,7 @@ test("defaults auto-selects the only ready visible harness", async ({
           { status: "not_applicable" },
           { onboarding_visible: false },
         ),
-        runtime("claude", "available", { status: "logged_in" }),
+        runtime("devin", "available", { status: "logged_in" }),
         runtime("codex", "available", { status: "logged_out" }),
       ],
       globalAgentConfig: {
@@ -695,9 +712,67 @@ test("defaults auto-selects the only ready visible harness", async ({
   await page.getByTestId("onboarding-setup-next").click();
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
 
-  await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
-    "Claude Code",
+  const harness = page.getByTestId("global-agent-default-harness");
+  await expect(harness).toHaveText("Select a harness");
+  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
+  expect(await readSavedRuntime(page)).toBeNull();
+  await expect(
+    page.getByText(
+      "This default harness powers Fizz, Honey, Bumble, and other agents set to Runtime default.",
+    ),
+  ).toBeVisible();
+
+  await harness.click();
+  await expect(
+    page.getByTestId("global-agent-default-harness-option-buzz-agent"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("global-agent-default-harness-option-devin"),
+  ).toBeVisible();
+  await page
+    .getByTestId("global-agent-default-harness-option-buzz-agent")
+    .click();
+  await expect(harness).toHaveText("Buzz");
+  await expect(page.getByTestId("global-agent-provider")).toBeVisible();
+  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
+
+  await harness.click();
+  await page.getByTestId("global-agent-default-harness-option-devin").click();
+  await expect(harness).toHaveText("Devin");
+  await expect(page.getByTestId("onboarding-finish")).toBeEnabled();
+  await expect.poll(() => readSavedRuntime(page)).toBe("devin");
+});
+
+test("defaults requires a choice when one external harness is ready", async ({
+  page,
+}) => {
+  await installMockBridge(
+    page,
+    {
+      acpRuntimesCatalog: [
+        runtime("claude", "available", { status: "logged_in" }),
+      ],
+      globalAgentConfig: {
+        env_vars: {},
+        provider: null,
+        model: null,
+        preferred_runtime: null,
+      },
+    },
+    { skipCommunitySeed: true, skipOnboardingSeed: true },
   );
+  await page.goto("/");
+  await navigateToSetupPage(page);
+  await page.getByTestId("onboarding-setup-next").click();
+
+  const harness = page.getByTestId("global-agent-default-harness");
+  await expect(harness).toHaveText("Select a harness");
+  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
+  expect(await readSavedRuntime(page)).toBeNull();
+
+  await harness.click();
+  await page.getByTestId("global-agent-default-harness-option-claude").click();
+  await expect(harness).toHaveText("Claude Code");
   await expect(page.getByTestId("onboarding-finish")).toBeEnabled();
   await expect.poll(() => readSavedRuntime(page)).toBe("claude");
 });
@@ -790,7 +865,7 @@ test("defaults requires a choice when multiple visible harnesses are ready", asy
   ).toHaveCount(0);
   await expect(
     page.getByTestId("global-agent-default-harness-option-buzz-agent"),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await page.getByTestId("global-agent-default-harness-option-codex").click();
   await expect(harness).toHaveText("Codex");
   await expect(page.getByTestId("onboarding-finish")).toBeEnabled();

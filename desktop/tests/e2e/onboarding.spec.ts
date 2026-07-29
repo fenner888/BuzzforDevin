@@ -1223,12 +1223,15 @@ test("first-community shows the scenario cards for localhost", async ({
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: "Configure your default model settings",
+      name: "Choose how your agents run",
     }),
   ).toBeVisible();
-  await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
-    "Claude Code",
-  );
+  const harness = page.getByTestId("global-agent-default-harness");
+  await expect(harness).toHaveText("Select a harness");
+  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
+  await harness.click();
+  await page.getByTestId("global-agent-default-harness-option-claude").click();
+  await expect(harness).toHaveText("Claude Code");
   await expect(page.getByTestId("onboarding-finish")).toBeEnabled();
 });
 
