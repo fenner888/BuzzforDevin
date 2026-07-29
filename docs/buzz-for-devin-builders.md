@@ -13,9 +13,9 @@ product.
 
 Use the immutable source prerelease:
 
-- Tag: `buzz-for-devin-v0.4.25-alpha.7`
+- Tag: `buzz-for-devin-v0.4.25-alpha.8`
 - Release:
-  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.7>
+  <https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.8>
 - Focused upstream proposal:
   <https://github.com/block/buzz/pull/3225>
 
@@ -61,9 +61,9 @@ that this fork publishes a supported prebuilt installer for that platform.
 ```sh
 cd "$HOME" &&
 GIT_CONFIG_GLOBAL=/dev/null git clone \
-  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha7 &&
-cd BuzzforDevin-alpha7 &&
-git switch -c buzz-for-devin-alpha7 buzz-for-devin-v0.4.25-alpha.7
+  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha8 &&
+cd BuzzforDevin-alpha8 &&
+git switch -c buzz-for-devin-alpha8 buzz-for-devin-v0.4.25-alpha.8
 ```
 
 The named local branch avoids Git's detached-HEAD warning while preserving the
