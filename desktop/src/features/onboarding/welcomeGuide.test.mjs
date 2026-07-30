@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   activateWelcomeTeamPersonasSequentially,
   buildWelcomeStarterCreateInput,
+  findStaleWelcomeTeamMemberPubkeys,
   LEGACY_WELCOME_GUIDE_SYSTEM_PROMPT,
   pickWelcomeGuideAgent,
   pickWelcomeGuideAgentForRelay,
@@ -18,6 +19,9 @@ import {
 const PUB_A = "a".repeat(64);
 const PUB_B = "b".repeat(64);
 const PUB_C = "c".repeat(64);
+const PUB_D = "d".repeat(64);
+const PUB_E = "e".repeat(64);
+const PUB_F = "f".repeat(64);
 const RELAY_A = "ws://localhost:3000";
 const RELAY_B = "ws://localhost:3001";
 
@@ -58,6 +62,106 @@ function makeAgent(overrides = {}) {
     ...overrides,
   };
 }
+
+function makeMember(pubkey, overrides = {}) {
+  return {
+    pubkey,
+    role: "bot",
+    isAgent: true,
+    joinedAt: "2026-07-30T00:00:00.000Z",
+    displayName: null,
+    ...overrides,
+  };
+}
+
+function makeManagedAgentEvent(pubkey, personaId, overrides = {}) {
+  return {
+    id: pubkey,
+    pubkey: PUB_F,
+    created_at: 1,
+    kind: 30177,
+    tags: [["d", pubkey]],
+    content: JSON.stringify({ persona_id: personaId }),
+    sig: "",
+    ...overrides,
+  };
+}
+
+test("stale same-owner Welcome agents are pruned while the current trio is preserved", () => {
+  const currentAgents = [
+    makeAgent({ pubkey: PUB_A, personaId: "builtin:fizz" }),
+    makeAgent({ pubkey: PUB_B, personaId: "builtin:honey" }),
+    makeAgent({ pubkey: PUB_C, personaId: "builtin:bumble" }),
+  ];
+  const members = [PUB_A, PUB_B, PUB_C, PUB_D, PUB_E].map((pubkey) =>
+    makeMember(pubkey),
+  );
+  const events = [
+    makeManagedAgentEvent(PUB_A, "builtin:fizz"),
+    makeManagedAgentEvent(PUB_B, "builtin:honey"),
+    makeManagedAgentEvent(PUB_C, "builtin:bumble"),
+    makeManagedAgentEvent(PUB_D, "builtin:fizz"),
+    makeManagedAgentEvent(PUB_E, "builtin:honey"),
+  ];
+
+  assert.deepEqual(
+    findStaleWelcomeTeamMemberPubkeys(members, events, PUB_F, currentAgents),
+    [PUB_D, PUB_E],
+  );
+});
+
+test("Welcome cleanup ignores foreign, custom, malformed, and uncertain agents", () => {
+  const currentAgents = [
+    makeAgent({ pubkey: PUB_A, personaId: "builtin:fizz" }),
+    makeAgent({ pubkey: PUB_B, personaId: "builtin:honey" }),
+    makeAgent({ pubkey: PUB_C, personaId: "builtin:bumble" }),
+  ];
+  const foreignOwner = "1".repeat(64);
+  const nonMember = "2".repeat(64);
+  const nonAgent = "3".repeat(64);
+  const invalidTag = "not-a-pubkey";
+  const members = [
+    makeMember(PUB_D),
+    makeMember(PUB_E),
+    makeMember(nonAgent, { isAgent: false }),
+  ];
+  const events = [
+    makeManagedAgentEvent(PUB_D, "builtin:fizz", {
+      pubkey: foreignOwner,
+    }),
+    makeManagedAgentEvent(PUB_E, "custom:helper"),
+    makeManagedAgentEvent(PUB_E, "builtin:honey", {
+      content: "{malformed",
+    }),
+    makeManagedAgentEvent(nonMember, "builtin:bumble"),
+    makeManagedAgentEvent(nonAgent, "builtin:fizz"),
+    makeManagedAgentEvent(invalidTag, "builtin:honey"),
+    makeManagedAgentEvent(PUB_E, "builtin:honey", { kind: 1 }),
+  ];
+
+  assert.deepEqual(
+    findStaleWelcomeTeamMemberPubkeys(members, events, PUB_F, currentAgents),
+    [],
+  );
+});
+
+test("Welcome cleanup deduplicates retained records for one stale member", () => {
+  const stale = makeManagedAgentEvent(PUB_D, "builtin:fizz");
+
+  assert.deepEqual(
+    findStaleWelcomeTeamMemberPubkeys(
+      [makeMember(PUB_D)],
+      [stale, { ...stale, id: "newer" }],
+      PUB_F,
+      [
+        makeAgent({ pubkey: PUB_A, personaId: "builtin:fizz" }),
+        makeAgent({ pubkey: PUB_B, personaId: "builtin:honey" }),
+        makeAgent({ pubkey: PUB_C, personaId: "builtin:bumble" }),
+      ],
+    ),
+    [PUB_D],
+  );
+});
 
 test("pickWelcomeGuideAgent reuses a legacy Kit guide", () => {
   const legacyKit = makeAgent({
