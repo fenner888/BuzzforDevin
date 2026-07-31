@@ -73,6 +73,8 @@ export async function refreshProfileCaches(
     avatarUrl: profile.avatarUrl,
     about: profile.about,
     website: profile.website,
+    bannerUrl: profile.bannerUrl,
+    socialLinks: profile.socialLinks,
     avatarDataUrl: resolveAvatarDataUrl(profile.avatarUrl, null, existing),
     updatedAt: Date.now(),
     ...(profile.hasProfileEvent && { hasProfileEvent: true as const }),

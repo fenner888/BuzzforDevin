@@ -2,11 +2,15 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowUpRight,
+  AtSign,
+  BriefcaseBusiness,
+  Code2,
   Copy,
   Cpu,
   Ear,
   Fingerprint,
   Globe2,
+  Link2,
   Server,
   ShieldCheck,
   Terminal,
@@ -19,6 +23,10 @@ import {
   normalizeProfileWebsite,
   profileWebsiteDisplayValue,
 } from "@/features/profile/lib/profileWebsite";
+import {
+  normalizeProfileLinkUrl,
+  profileLinkDisplayValue,
+} from "@/features/profile/lib/profileLinks";
 import { truncatePubkey } from "@/shared/lib/pubkey";
 import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { PubKey } from "@/shared/ui/PubKey";
@@ -75,8 +83,10 @@ const DIAGNOSTICS_LABELS = new Set(["Status", "Last error"]);
 
 export function bucketProfileFields(fields: ProfileField[]) {
   return {
-    agentInfoFields: fields.filter((field) =>
-      AGENT_INFO_LABELS.has(field.label),
+    agentInfoFields: fields.filter(
+      (field) =>
+        AGENT_INFO_LABELS.has(field.label) ||
+        field.testId?.startsWith("user-profile-social-") === true,
     ),
     agentSettingsFields: fields.filter((field) =>
       AGENT_SETTINGS_LABELS.has(field.label),
@@ -207,6 +217,30 @@ export function buildPublicFields({
         );
       },
       testId: "user-profile-website",
+    });
+  }
+
+  for (const [index, link] of (profile?.socialLinks ?? []).entries()) {
+    const url = normalizeProfileLinkUrl(link.url, link.kind);
+    if (!url) continue;
+    const icon =
+      link.kind === "github"
+        ? Code2
+        : link.kind === "linkedin"
+          ? BriefcaseBusiness
+          : link.kind === "x"
+            ? AtSign
+            : Link2;
+    fields.push({
+      displayValue: profileLinkDisplayValue(url),
+      icon,
+      label: link.label,
+      onClick: () => {
+        void import("@tauri-apps/plugin-opener").then(({ openUrl }) =>
+          openUrl(url),
+        );
+      },
+      testId: `user-profile-social-${link.kind}-${index}`,
     });
   }
 

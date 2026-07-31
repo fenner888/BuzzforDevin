@@ -11,6 +11,8 @@
  * prevents one community's cached identity from bleeding into another.
  */
 
+import type { ProfileLink } from "@/shared/api/types";
+
 const STORAGE_KEY_PREFIX = "buzz-self-profile.v1";
 
 /**
@@ -38,6 +40,8 @@ export type SelfProfileCache = {
   avatarUrl: string | null;
   about: string | null;
   website?: string | null;
+  bannerUrl?: string | null;
+  socialLinks?: ProfileLink[];
   /**
    * Base64 data URL captured while the relay was reachable. Capped at 256 KB
    * to keep localStorage usage bounded. Null if never captured or too large.
@@ -62,6 +66,8 @@ const DEFAULT_CACHE: SelfProfileCache = Object.freeze({
   avatarUrl: null,
   about: null,
   website: null,
+  bannerUrl: null,
+  socialLinks: [],
   avatarDataUrl: null,
   updatedAt: 0,
 });
@@ -91,6 +97,17 @@ export function parseSelfProfileCache(json: unknown): SelfProfileCache | null {
   const avatarUrl = typeof obj.avatarUrl === "string" ? obj.avatarUrl : null;
   const about = typeof obj.about === "string" ? obj.about : null;
   const website = typeof obj.website === "string" ? obj.website : null;
+  const bannerUrl = typeof obj.bannerUrl === "string" ? obj.bannerUrl : null;
+  const socialLinks = Array.isArray(obj.socialLinks)
+    ? obj.socialLinks.filter(
+        (link): link is ProfileLink =>
+          typeof link === "object" &&
+          link !== null &&
+          typeof (link as ProfileLink).kind === "string" &&
+          typeof (link as ProfileLink).label === "string" &&
+          typeof (link as ProfileLink).url === "string",
+      )
+    : [];
   // Defense-in-depth: avatarDataUrl flows into an <img src> sink; only accept
   // values that are provably safe image data URLs.
   const avatarDataUrl =
@@ -113,6 +130,8 @@ export function parseSelfProfileCache(json: unknown): SelfProfileCache | null {
     avatarUrl,
     about,
     website,
+    bannerUrl,
+    socialLinks,
     avatarDataUrl,
     updatedAt,
     ...(hasProfileEvent !== undefined && { hasProfileEvent }),

@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use crate::models::*;
 
 mod user_search;
+pub use crate::profile_metadata::profile_info_from_event;
 pub use user_search::{
     list_user_search_results, rank_user_search_results, search_users_from_events,
     user_search_result_from_event,
@@ -275,33 +276,6 @@ pub fn channel_members_from_event(event: &Event) -> Result<ChannelMembersRespons
     Ok(ChannelMembersResponse {
         members,
         next_cursor: None,
-    })
-}
-
-/// Convert kind:0 NIP-01 profile metadata, including `website`, to [`ProfileInfo`].
-pub fn profile_info_from_event(event: &Event) -> Result<ProfileInfo, String> {
-    let v: Value = serde_json::from_str(&event.content)
-        .map_err(|e| format!("kind:0 content is not valid JSON: {e}"))?;
-
-    let display_name = v
-        .get("display_name")
-        .and_then(Value::as_str)
-        .or_else(|| v.get("name").and_then(Value::as_str))
-        .map(str::to_string);
-    let avatar_url = v.get("picture").and_then(Value::as_str).map(str::to_string);
-    let about = v.get("about").and_then(Value::as_str).map(str::to_string);
-    let website = v.get("website").and_then(Value::as_str).map(str::to_string);
-    let nip05_handle = v.get("nip05").and_then(Value::as_str).map(str::to_string);
-
-    Ok(ProfileInfo {
-        pubkey: event.pubkey.to_hex(),
-        display_name,
-        avatar_url,
-        about,
-        website,
-        nip05_handle,
-        owner_pubkey: profile_valid_oa_owner_pubkey(event),
-        has_profile_event: true,
     })
 }
 
@@ -759,7 +733,7 @@ mod tests {
     fn profile_info_parses_content() {
         let e = ev(
             0,
-            r#"{"name":"alice","display_name":"Alice","picture":"http://x/a.png","about":"hi","website":"https://alice.example","nip05":"alice@x"}"#,
+            r#"{"name":"alice","display_name":"Alice","picture":"http://x/a.png","about":"hi","website":"https://alice.example","banner":"https://alice.example/banner.png","links":[{"kind":"github","label":"GitHub","url":"https://github.com/alice"}],"nip05":"alice@x"}"#,
             vec![],
         );
         let p = profile_info_from_event(&e).unwrap();
@@ -767,6 +741,12 @@ mod tests {
         assert_eq!(p.avatar_url.as_deref(), Some("http://x/a.png"));
         assert_eq!(p.about.as_deref(), Some("hi"));
         assert_eq!(p.website.as_deref(), Some("https://alice.example"));
+        assert_eq!(
+            p.banner_url.as_deref(),
+            Some("https://alice.example/banner.png")
+        );
+        assert_eq!(p.social_links.len(), 1);
+        assert_eq!(p.social_links[0].kind, "github");
         assert_eq!(p.nip05_handle.as_deref(), Some("alice@x"));
         assert_eq!(p.pubkey, e.pubkey.to_hex());
         assert!(p.owner_pubkey.is_none());

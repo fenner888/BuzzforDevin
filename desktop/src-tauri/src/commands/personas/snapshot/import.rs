@@ -959,11 +959,19 @@ mod import_avatar_tests {
         .unwrap()
         .unwrap();
 
-        let event =
-            crate::events::build_profile(Some("Imported agent"), None, Some(&avatar), None, None)
-                .unwrap()
-                .sign_with_keys(&nostr::Keys::generate())
-                .unwrap();
+        let event = crate::events::build_profile(crate::events::ProfileMetadata {
+            display_name: Some("Imported agent"),
+            name: None,
+            picture: Some(&avatar),
+            about: None,
+            website: None,
+            nip05: None,
+            banner: None,
+            social_links: None,
+        })
+        .unwrap()
+        .sign_with_keys(&nostr::Keys::generate())
+        .unwrap();
         assert!(event.content.len() < 64 * 1024);
         assert!(!event.content.contains("data:image/"));
         assert!(event

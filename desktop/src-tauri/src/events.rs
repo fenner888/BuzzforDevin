@@ -470,31 +470,7 @@ pub fn build_set_canvas(channel_id: Uuid, content: &str) -> Result<EventBuilder,
 
 // ── Profile ──────────────────────────────────────────────────────────────────
 
-/// Kind 0 — NIP-01 profile metadata (full snapshot).
-pub fn build_profile(
-    display_name: Option<&str>,
-    name: Option<&str>,
-    picture: Option<&str>,
-    about: Option<&str>,
-    website: Option<&str>,
-    nip05: Option<&str>,
-) -> Result<EventBuilder, String> {
-    let mut map = serde_json::Map::new();
-    for (key, value) in [
-        ("display_name", display_name),
-        ("name", name),
-        ("picture", picture),
-        ("about", about),
-        ("website", website),
-        ("nip05", nip05),
-    ] {
-        if let Some(value) = value {
-            map.insert(key.into(), serde_json::Value::String(value.into()));
-        }
-    }
-    let content = serde_json::Value::Object(map).to_string();
-    Ok(EventBuilder::new(Kind::Custom(0), content))
-}
+pub(crate) use crate::profile_metadata::{build_profile, ProfileMetadata};
 
 // ── Huddles ──────────────────────────────────────────────────────────────────
 

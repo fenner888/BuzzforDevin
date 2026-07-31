@@ -33,6 +33,9 @@ pub struct ProfileInfo {
     pub avatar_url: Option<String>,
     pub about: Option<String>,
     pub website: Option<String>,
+    pub banner_url: Option<String>,
+    #[serde(default)]
+    pub social_links: Vec<ProfileLinkInfo>,
     pub nip05_handle: Option<String>,
     pub owner_pubkey: Option<String>,
     /// `true` when a real kind:0 event was found on the relay; `false` for the
@@ -40,6 +43,13 @@ pub struct ProfileInfo {
     /// onboarding gate uses this to distinguish "new user with no profile" from
     /// "returning user whose display_name happens to be empty".
     pub has_profile_event: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfileLinkInfo {
+    pub kind: String,
+    pub label: String,
+    pub url: String,
 }
 
 #[derive(Serialize, Deserialize)]

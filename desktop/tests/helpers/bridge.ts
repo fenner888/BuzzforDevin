@@ -68,6 +68,8 @@ type MockSearchProfileSeed = {
   nip05Handle?: string | null;
   about?: string | null;
   website?: string | null;
+  bannerUrl?: string | null;
+  socialLinks?: Array<{ kind: string; label: string; url: string }>;
   ownerPubkey?: string | null;
   isAgent?: boolean;
 };

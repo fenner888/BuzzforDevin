@@ -404,8 +404,16 @@ fn build_profile_event(
     avatar_url: Option<&str>,
     auth_tag_json: Option<&str>,
 ) -> Result<nostr::Event, String> {
-    let builder =
-        crate::events::build_profile(Some(display_name), None, avatar_url, None, None, None)?;
+    let builder = crate::events::build_profile(crate::events::ProfileMetadata {
+        display_name: Some(display_name),
+        name: None,
+        picture: avatar_url,
+        about: None,
+        website: None,
+        nip05: None,
+        banner: None,
+        social_links: None,
+    })?;
 
     let builder = if let Some(tag_json) = auth_tag_json {
         // Bridge nostr 0.37 PublicKey → nostr 0.36 PublicKey via hex encoding.

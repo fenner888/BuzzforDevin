@@ -1,3 +1,10 @@
+export type {
+  Profile,
+  ProfileLink,
+  ProfileLinkKind,
+  UpdateProfileInput,
+} from "./profileTypes";
+
 export type ChannelType = "stream" | "forum" | "dm";
 export type ChannelVisibility = "open" | "private";
 export type ChannelRole = "owner" | "admin" | "member" | "guest" | "bot";
@@ -105,19 +112,6 @@ export type AddChannelMembersResult = {
 
 export type { Identity, IdentityStorage } from "./identityTypes";
 
-export type Profile = {
-  pubkey: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  about: string | null;
-  website: string | null;
-  nip05Handle: string | null;
-  ownerPubkey: string | null;
-  /** True for a real kind:0 event; false for a synthesized fallback.
-   * Lets onboarding distinguish new users from empty returning profiles. */
-  hasProfileEvent: boolean;
-};
-
 export type UserProfileSummary = {
   displayName: string | null;
   /** Kind-0 `name` field, kept separate from `displayName` so @mention text
@@ -147,14 +141,6 @@ export type UserSearchResult = {
 export type UserSearchPage = {
   users: UserSearchResult[];
   nextCursor: string | null;
-};
-
-export type UpdateProfileInput = {
-  displayName?: string;
-  avatarUrl?: string;
-  about?: string;
-  website?: string;
-  nip05Handle?: string;
 };
 
 export type PresenceStatus = "online" | "away" | "offline";

@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Copy, Pencil } from "lucide-react";
+import { ChevronDown, Copy, Pencil } from "lucide-react";
 import {
   AnimatePresence,
   LayoutGroup,
@@ -19,19 +19,23 @@ import {
   parseEmojiAvatarDataUrl,
 } from "@/features/profile/ui/ProfileAvatarEditor";
 import { cn } from "@/shared/lib/cn";
-import { Input } from "@/shared/ui/input";
 import { Spinner } from "@/shared/ui/spinner";
-import { Textarea } from "@/shared/ui/textarea";
+import type { ProfileLink } from "@/shared/api/types";
 import { PrivateKeyBackupRow } from "./PrivateKeyBackupRow";
+import { ProfileBannerEditor } from "./ProfileBannerEditor";
+import { ProfileMetadataEditor } from "./ProfileMetadataEditor";
 import { SettingsSectionHeader } from "./SettingsSectionHeader";
 import { SignOutSection } from "./SignOutSection";
 import { writeTextToClipboard } from "@/shared/lib/clipboard";
 import { normalizeProfileWebsite } from "@/features/profile/lib/profileWebsite";
+import { normalizeProfileLinks } from "@/features/profile/lib/profileLinks";
 
 type ProfileSettingsCardProps = {
   currentPubkey?: string;
   fallbackDisplayName?: string;
 };
+
+const EMPTY_PROFILE_LINKS: ProfileLink[] = [];
 
 const AVATAR_EDITOR_TRANSITION_MS = 240;
 const AVATAR_PREVIEW_CAPTION_TRANSITION = {
@@ -90,44 +94,6 @@ function IdentityRow({
   );
 }
 
-function EditProfileMetadataButton({
-  label,
-  testId,
-  onClick,
-  disabled,
-  isEditing,
-}: {
-  label: string;
-  testId: string;
-  onClick: () => void;
-  disabled: boolean;
-  isEditing: boolean;
-}) {
-  const Icon = isEditing ? Check : Pencil;
-  const actionLabel = isEditing ? "Done" : "Edit";
-  const accessibleLabel = isEditing ? `Done editing ${label}` : `Edit ${label}`;
-
-  return (
-    <button
-      aria-label={accessibleLabel}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
-        isEditing
-          ? "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/90"
-          : "border-transparent bg-muted text-foreground hover:bg-muted/80",
-      )}
-      data-testid={testId}
-      disabled={disabled}
-      onClick={onClick}
-      title={accessibleLabel}
-      type="button"
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      {actionLabel}
-    </button>
-  );
-}
-
 export function ProfileSettingsCard({
   currentPubkey,
   fallbackDisplayName,
@@ -141,15 +107,22 @@ export function ProfileSettingsCard({
   const currentAvatarUrl = profile?.avatarUrl ?? "";
   const currentAbout = profile?.about ?? "";
   const currentWebsite = profile?.website ?? "";
+  const currentBannerUrl = profile?.bannerUrl ?? "";
+  const currentSocialLinks = profile?.socialLinks ?? EMPTY_PROFILE_LINKS;
   const [displayNameDraft, setDisplayNameDraft] = React.useState("");
   const [avatarUrlDraft, setAvatarUrlDraft] = React.useState("");
   const [aboutDraft, setAboutDraft] = React.useState("");
   const [websiteDraft, setWebsiteDraft] = React.useState("");
+  const [bannerUrlDraft, setBannerUrlDraft] = React.useState("");
+  const [socialLinksDraft, setSocialLinksDraft] = React.useState<ProfileLink[]>(
+    [],
+  );
   const [uploadedAvatarUrlDraft, setUploadedAvatarUrlDraft] = React.useState<
     string | null
   >(null);
   const [isAvatarEditorOpen, setIsAvatarEditorOpen] = React.useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = React.useState(false);
   const [isAvatarEditorFinishing, setIsAvatarEditorFinishing] =
     React.useState(false);
   // The animated avatar tab portals its camera feed / composed preview into
@@ -168,8 +141,6 @@ export function ProfileSettingsCard({
   const [shouldRenderAvatarEditor, setShouldRenderAvatarEditor] =
     React.useState(false);
   const [avatarSquishKey, setAvatarSquishKey] = React.useState(0);
-  const displayNameInputRef = React.useRef<HTMLInputElement>(null);
-  const aboutTextareaRef = React.useRef<HTMLTextAreaElement>(null);
   const sectionRef = React.useRef<HTMLElement>(null);
   const isEditingProfileMetadataRef = React.useRef(false);
   const avatarEditorOpenFrameRef = React.useRef<number | null>(null);
@@ -202,6 +173,13 @@ export function ProfileSettingsCard({
   }, [currentWebsite]);
 
   React.useEffect(() => {
+    if (!isEditingProfileMetadataRef.current) {
+      setBannerUrlDraft(currentBannerUrl);
+      setSocialLinksDraft(currentSocialLinks);
+    }
+  }, [currentBannerUrl, currentSocialLinks]);
+
+  React.useEffect(() => {
     if (
       uploadedAvatarUrlDraft &&
       currentAvatarUrl &&
@@ -211,12 +189,6 @@ export function ProfileSettingsCard({
       setUploadedAvatarUrlDraft(null);
     }
   }, [avatarUrlDraft, currentAvatarUrl, uploadedAvatarUrlDraft]);
-
-  React.useEffect(() => {
-    if (isEditingProfileMetadata) {
-      displayNameInputRef.current?.focus();
-    }
-  }, [isEditingProfileMetadata]);
 
   React.useEffect(() => {
     if (
@@ -261,12 +233,27 @@ export function ProfileSettingsCard({
       ? "Enter a valid website using http or https."
       : null;
   const nextWebsite = normalizedNextWebsite ?? "";
+  const rawNextBannerUrl = bannerUrlDraft.trim();
+  const normalizedNextBannerUrl = normalizeProfileWebsite(rawNextBannerUrl);
+  const bannerError =
+    rawNextBannerUrl.length > 0 && normalizedNextBannerUrl === null
+      ? "Upload a valid banner image."
+      : null;
+  const nextBannerUrl = normalizedNextBannerUrl ?? "";
+  const normalizedNextSocialLinks = normalizeProfileLinks(socialLinksDraft);
+  const socialLinksError =
+    socialLinksDraft.length > 0 && normalizedNextSocialLinks === null
+      ? "Use HTTPS links from the matching service and complete each custom link."
+      : null;
+  const nextSocialLinks = normalizedNextSocialLinks ?? [];
   const updatePayload = React.useMemo(() => {
     const payload: {
       displayName?: string;
       avatarUrl?: string;
       about?: string;
       website?: string;
+      bannerUrl?: string;
+      socialLinks?: ProfileLink[];
     } = {};
 
     if (nextDisplayName.length > 0 && nextDisplayName !== currentDisplayName) {
@@ -281,6 +268,15 @@ export function ProfileSettingsCard({
     if (!websiteError && nextWebsite !== currentWebsite) {
       payload.website = nextWebsite;
     }
+    if (!bannerError && nextBannerUrl !== currentBannerUrl) {
+      payload.bannerUrl = nextBannerUrl;
+    }
+    if (
+      !socialLinksError &&
+      JSON.stringify(nextSocialLinks) !== JSON.stringify(currentSocialLinks)
+    ) {
+      payload.socialLinks = nextSocialLinks;
+    }
 
     return payload;
   }, [
@@ -288,11 +284,17 @@ export function ProfileSettingsCard({
     currentAvatarUrl,
     currentDisplayName,
     currentWebsite,
+    currentBannerUrl,
+    currentSocialLinks,
+    bannerError,
+    nextBannerUrl,
+    nextSocialLinks,
     nextAbout,
     nextAvatarUrl,
     nextDisplayName,
     nextWebsite,
     websiteError,
+    socialLinksError,
   ]);
 
   const hasPendingDisplayNameClearRequest =
@@ -305,8 +307,11 @@ export function ProfileSettingsCard({
   const canSave =
     hasProfileChanges &&
     !websiteError &&
+    !bannerError &&
+    !socialLinksError &&
     !updateProfileMutation.isPending &&
-    !isUploadingAvatar;
+    !isUploadingAvatar &&
+    !isUploadingBanner;
   const isAvatarEditorSaving =
     isAvatarEditorFinishing ||
     (shouldRenderAvatarEditor && updateProfileMutation.isPending);
@@ -425,6 +430,8 @@ export function ProfileSettingsCard({
     setAvatarUrlDraft(updatePayload.avatarUrl ?? currentAvatarUrl);
     setAboutDraft(updatePayload.about ?? currentAbout);
     setWebsiteDraft(updatePayload.website ?? currentWebsite);
+    setBannerUrlDraft(updatePayload.bannerUrl ?? currentBannerUrl);
+    setSocialLinksDraft(updatePayload.socialLinks ?? currentSocialLinks);
     toast.success("Profile saved");
     return true;
   }, [
@@ -433,6 +440,8 @@ export function ProfileSettingsCard({
     currentAvatarUrl,
     currentDisplayName,
     currentWebsite,
+    currentBannerUrl,
+    currentSocialLinks,
     updatePayload,
     updateProfileMutation,
   ]);
@@ -443,7 +452,7 @@ export function ProfileSettingsCard({
       return;
     }
 
-    if (websiteError) {
+    if (websiteError || bannerError || socialLinksError) {
       return;
     }
 
@@ -467,6 +476,8 @@ export function ProfileSettingsCard({
     hasProfileChanges,
     isEditingProfileMetadata,
     saveProfile,
+    bannerError,
+    socialLinksError,
     websiteError,
   ]);
 
@@ -506,6 +517,17 @@ export function ProfileSettingsCard({
     setAvatarSquishKey((key) => key + 1);
   }, []);
 
+  const handleBannerChange = React.useCallback(
+    (url: string) => {
+      setBannerUrlDraft(url);
+      void updateProfileMutation.mutateAsync({ bannerUrl: url }).then(
+        () => toast.success(url ? "Banner saved" : "Banner removed"),
+        () => undefined,
+      );
+    },
+    [updateProfileMutation.mutateAsync],
+  );
+
   return (
     <section
       className="min-w-0"
@@ -515,7 +537,7 @@ export function ProfileSettingsCard({
       <div>
         <SettingsSectionHeader
           title="Profile"
-          description="Update how your name, avatar, bio, and website appear across Buzz."
+          description="Update how your name, avatar, banner, bio, and links appear across Buzz."
         />
 
         <div className="space-y-3">
@@ -571,12 +593,20 @@ export function ProfileSettingsCard({
                   </AnimatePresence>
 
                   <motion.div
-                    className="flex flex-col items-center gap-3"
+                    className="flex w-full flex-col items-center gap-3"
                     layout="position"
                     transition={avatarEditorLayoutTransition}
                   >
+                    <ProfileBannerEditor
+                      bannerUrl={bannerUrlDraft}
+                      disabled={
+                        isAvatarEditorOpen || updateProfileMutation.isPending
+                      }
+                      onChange={handleBannerChange}
+                      onUploadingChange={setIsUploadingBanner}
+                    />
                     <div
-                      className="relative h-48 w-48"
+                      className="relative -mt-20 h-48 w-48 rounded-full ring-4 ring-background"
                       data-testid="profile-avatar-clip-frame"
                     >
                       <MaskedAvatarBadgeFrame
@@ -702,149 +732,21 @@ export function ProfileSettingsCard({
                       inert={isAvatarEditorOpen ? true : undefined}
                     >
                       <div className="space-y-12">
-                        <div
-                          className="overflow-hidden rounded-xl border border-border/70 bg-background/70 shadow-xs divide-y divide-border/55"
-                          data-testid="profile-metadata-card"
-                        >
-                          <div className="flex min-h-14 items-center justify-between gap-4 px-4 py-3">
-                            <h2 className="text-lg font-semibold tracking-tight">
-                              Profile info
-                            </h2>
-                            <EditProfileMetadataButton
-                              disabled={updateProfileMutation.isPending}
-                              isEditing={isEditingProfileMetadata}
-                              label="profile info"
-                              onClick={handleProfileMetadataEdit}
-                              testId="profile-metadata-edit"
-                            />
-                          </div>
-
-                          <div className="flex min-h-16 items-center gap-4 px-4 py-3">
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <label
-                                className="block text-sm font-medium"
-                                htmlFor="profile-display-name"
-                              >
-                                Display name
-                              </label>
-                              {isEditingProfileMetadata ? (
-                                <Input
-                                  className="h-auto border-0 bg-transparent px-0 py-0 text-sm text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
-                                  data-testid="profile-display-name"
-                                  disabled={updateProfileMutation.isPending}
-                                  id="profile-display-name"
-                                  onChange={(event) =>
-                                    setDisplayNameDraft(event.target.value)
-                                  }
-                                  placeholder="Display name"
-                                  ref={displayNameInputRef}
-                                  value={displayNameDraft}
-                                />
-                              ) : (
-                                <p
-                                  className="min-w-0 truncate text-sm text-muted-foreground"
-                                  data-testid="profile-display-name-value"
-                                  title={displayNameDraft || "Not set"}
-                                >
-                                  {displayNameDraft || "Not set"}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex min-h-16 items-center gap-4 px-4 py-3">
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <label
-                                className="block text-sm font-medium"
-                                htmlFor="profile-about"
-                              >
-                                Profile description
-                              </label>
-                              {isEditingProfileMetadata ? (
-                                <Textarea
-                                  className="min-h-[72px] resize-none border-0 bg-transparent px-0 py-0 text-sm leading-6 text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
-                                  data-testid="profile-about"
-                                  disabled={updateProfileMutation.isPending}
-                                  id="profile-about"
-                                  onChange={(event) =>
-                                    setAboutDraft(event.target.value)
-                                  }
-                                  placeholder="Profile description"
-                                  ref={aboutTextareaRef}
-                                  value={aboutDraft}
-                                />
-                              ) : (
-                                <p
-                                  className={cn(
-                                    "min-w-0 break-words text-sm",
-                                    aboutDraft
-                                      ? "text-muted-foreground"
-                                      : "text-muted-foreground/55",
-                                  )}
-                                  data-testid="profile-about-value"
-                                  title={aboutDraft || "Not set"}
-                                >
-                                  {aboutDraft || "Not set"}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex min-h-16 items-center gap-4 px-4 py-3">
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <label
-                                className="block text-sm font-medium"
-                                htmlFor="profile-website"
-                              >
-                                Website
-                              </label>
-                              {isEditingProfileMetadata ? (
-                                <>
-                                  <Input
-                                    aria-describedby={
-                                      websiteError
-                                        ? "profile-website-error"
-                                        : undefined
-                                    }
-                                    aria-invalid={Boolean(websiteError)}
-                                    className="h-auto border-0 bg-transparent px-0 py-0 text-sm text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
-                                    data-testid="profile-website"
-                                    disabled={updateProfileMutation.isPending}
-                                    id="profile-website"
-                                    inputMode="url"
-                                    onChange={(event) =>
-                                      setWebsiteDraft(event.target.value)
-                                    }
-                                    placeholder="your-site.com"
-                                    value={websiteDraft}
-                                  />
-                                  {websiteError ? (
-                                    <p
-                                      className="text-xs text-destructive"
-                                      data-testid="profile-website-error"
-                                      id="profile-website-error"
-                                    >
-                                      {websiteError}
-                                    </p>
-                                  ) : null}
-                                </>
-                              ) : (
-                                <p
-                                  className={cn(
-                                    "min-w-0 truncate text-sm",
-                                    websiteDraft
-                                      ? "text-muted-foreground"
-                                      : "text-muted-foreground/55",
-                                  )}
-                                  data-testid="profile-website-value"
-                                  title={websiteDraft || "Not set"}
-                                >
-                                  {websiteDraft || "Not set"}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        <ProfileMetadataEditor
+                          about={aboutDraft}
+                          disabled={updateProfileMutation.isPending}
+                          displayName={displayNameDraft}
+                          isEditing={isEditingProfileMetadata}
+                          onAboutChange={setAboutDraft}
+                          onDisplayNameChange={setDisplayNameDraft}
+                          onEdit={handleProfileMetadataEdit}
+                          onSocialLinksChange={setSocialLinksDraft}
+                          onWebsiteChange={setWebsiteDraft}
+                          socialLinks={socialLinksDraft}
+                          socialLinksError={socialLinksError}
+                          website={websiteDraft}
+                          websiteError={websiteError}
+                        />
 
                         <div>
                           <details
