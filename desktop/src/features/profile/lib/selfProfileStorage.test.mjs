@@ -55,6 +55,14 @@ test("parseSelfProfileCache: valid v1 payload round-trips", () => {
     avatarUrl: "https://relay.example.com/media/abc.jpg",
     about: "Building better communities",
     website: "https://alice.example/",
+    bannerUrl: "https://relay.example.com/media/banner.jpg",
+    socialLinks: [
+      {
+        kind: "github",
+        label: "GitHub",
+        url: "https://github.com/alice",
+      },
+    ],
     avatarDataUrl: "data:image/jpeg;base64,/9j/4A==",
     updatedAt: 1700000000000,
   };
@@ -69,6 +77,8 @@ test("parseSelfProfileCache: null fields are preserved", () => {
     avatarUrl: null,
     about: null,
     website: null,
+    bannerUrl: null,
+    socialLinks: [],
     avatarDataUrl: null,
     updatedAt: 0,
   };

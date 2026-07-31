@@ -25,6 +25,7 @@ mod native_websocket;
 mod nostr_bind;
 pub mod nostr_convert;
 mod prevent_sleep;
+mod profile_metadata;
 mod ptt_shortcut;
 mod relay;
 mod relay_admission;

@@ -1,21 +1,25 @@
 use std::collections::HashMap;
 
-use buzz_core_pkg::PresenceStatus;
-use serde_json::Value;
-use tauri::State;
-use url::Url;
-
 use crate::{
     app_state::AppState,
     events,
     managed_agents::persona_events::monotonic_created_at,
-    models::{ProfileInfo, SearchUsersResponse, UserNotesResponse, UsersBatchResponse},
+    models::{
+        ProfileInfo, ProfileLinkInfo, SearchUsersResponse, UserNotesResponse, UsersBatchResponse,
+    },
     nostr_convert,
+    profile_metadata::{
+        normalize_profile_banner, normalize_profile_links, normalize_profile_website,
+        profile_links_from_value,
+    },
     relay::{
         query_relay, query_relay_at_with_keys, relay_http_base_url, submit_event,
         submit_event_at_with_keys,
     },
 };
+use buzz_core_pkg::PresenceStatus;
+use serde_json::Value;
+use tauri::State;
 
 #[tauri::command]
 pub async fn get_profile(state: State<'_, AppState>) -> Result<ProfileInfo, String> {
@@ -38,11 +42,15 @@ pub async fn get_profile(state: State<'_, AppState>) -> Result<ProfileInfo, Stri
 }
 
 #[tauri::command]
+// Tauri maps this public command's flat arguments directly from the existing IPC payload.
+#[allow(clippy::too_many_arguments)]
 pub async fn update_profile(
     display_name: Option<String>,
     avatar_url: Option<String>,
     about: Option<String>,
     website: Option<String>,
+    banner_url: Option<String>,
+    social_links: Option<Vec<ProfileLinkInfo>>,
     nip05_handle: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ProfileInfo, String> {
@@ -82,11 +90,30 @@ pub async fn update_profile(
     let web = normalized_website
         .as_deref()
         .or_else(|| current.get("website").and_then(Value::as_str));
+    let normalized_banner = banner_url
+        .as_deref()
+        .map(normalize_profile_banner)
+        .transpose()?;
+    let banner = normalized_banner
+        .as_deref()
+        .or_else(|| current.get("banner").and_then(Value::as_str));
+    let current_links = profile_links_from_value(&current);
+    let normalized_links = social_links.map(normalize_profile_links).transpose()?;
+    let links = normalized_links.as_deref().unwrap_or(&current_links);
     let nip05 = nip05_handle
         .as_deref()
         .or_else(|| current.get("nip05").and_then(Value::as_str));
 
-    let builder = events::build_profile(dn, name, picture, ab, web, nip05)?;
+    let builder = events::build_profile(events::ProfileMetadata {
+        display_name: dn,
+        name,
+        picture,
+        about: ab,
+        website: web,
+        nip05,
+        banner,
+        social_links: Some(links),
+    })?;
     submit_event(builder, &state).await?;
 
     // Re-fetch to return canonical profile.
@@ -166,13 +193,22 @@ fn build_deferred_profile_event(
     let about = current.get("about").and_then(Value::as_str);
     let website = current.get("website").and_then(Value::as_str);
     let nip05 = current.get("nip05").and_then(Value::as_str);
+    let banner = current.get("banner").and_then(Value::as_str);
+    let social_links = profile_links_from_value(current);
 
-    Ok(
-        events::build_profile(display_name, name, Some(avatar_url), about, website, nip05)?
-            .custom_created_at(monotonic_created_at(
-                prior_event.map(|event| event.created_at.as_secs() as i64),
-            )),
-    )
+    Ok(events::build_profile(events::ProfileMetadata {
+        display_name,
+        name,
+        picture: Some(avatar_url),
+        about,
+        website,
+        nip05,
+        banner,
+        social_links: Some(&social_links),
+    })?
+    .custom_created_at(monotonic_created_at(
+        prior_event.map(|event| event.created_at.as_secs() as i64),
+    )))
 }
 
 fn capture_expected_signer(state: &AppState, expected_pubkey: &str) -> Result<nostr::Keys, String> {
@@ -185,26 +221,6 @@ fn capture_expected_signer(state: &AppState, expected_pubkey: &str) -> Result<no
 
 fn normalized_avatar_url(avatar_url: Option<&str>) -> Option<&str> {
     avatar_url.map(str::trim).filter(|value| !value.is_empty())
-}
-
-fn normalize_profile_website(website: &str) -> Result<String, String> {
-    let trimmed = website.trim();
-    if trimmed.is_empty() {
-        return Ok(String::new());
-    }
-    let candidate = if trimmed.contains("://") {
-        trimmed.to_string()
-    } else {
-        format!("https://{trimmed}")
-    };
-    let parsed = Url::parse(&candidate).map_err(|_| "website must be a valid URL".to_string())?;
-    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-        return Err("website must use http or https".to_string());
-    }
-    if !parsed.username().is_empty() || parsed.password().is_some() {
-        return Err("website must not contain embedded credentials".to_string());
-    }
-    Ok(parsed.to_string())
 }
 
 #[tauri::command]
@@ -439,6 +455,8 @@ fn empty_profile_info(pubkey: &str) -> ProfileInfo {
         avatar_url: None,
         about: None,
         website: None,
+        banner_url: None,
+        social_links: Vec::new(),
         nip05_handle: None,
         owner_pubkey: None,
         has_profile_event: false,
@@ -494,7 +512,15 @@ mod tests {
         .expect("sign prior profile");
 
         let builder = build_deferred_profile_event(
-            &serde_json::json!({"display_name": "Larry"}),
+            &serde_json::json!({
+                "display_name": "Larry",
+                "banner": "https://example.com/banner.png",
+                "links": [{
+                    "kind": "github",
+                    "label": "GitHub",
+                    "url": "https://github.com/larry"
+                }]
+            }),
             "https://example.com/avatar.png",
             Some(&prior_event),
         )
@@ -508,6 +534,9 @@ mod tests {
             serde_json::from_str::<Value>(&event.content).unwrap()["picture"],
             "https://example.com/avatar.png"
         );
+        let content = serde_json::from_str::<Value>(&event.content).unwrap();
+        assert_eq!(content["banner"], "https://example.com/banner.png");
+        assert_eq!(content["links"][0]["kind"], "github");
     }
 
     #[test]
