@@ -412,6 +412,7 @@ fn build_profile_event(
         website: None,
         nip05: None,
         banner: None,
+        banner_position: None,
         social_links: None,
     })?;
 

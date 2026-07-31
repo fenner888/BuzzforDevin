@@ -69,6 +69,7 @@ type MockSearchProfileSeed = {
   about?: string | null;
   website?: string | null;
   bannerUrl?: string | null;
+  bannerPosition?: { x: number; y: number } | null;
   socialLinks?: Array<{ kind: string; label: string; url: string }>;
   ownerPubkey?: string | null;
   isAgent?: boolean;

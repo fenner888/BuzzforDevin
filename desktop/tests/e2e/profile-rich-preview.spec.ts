@@ -64,6 +64,7 @@ test("shows a richer human profile with verified channel context", async ({
         pubkey: TEST_IDENTITIES.bob.pubkey,
         website: "https://markfenner.dev/builds",
         bannerUrl: MOCK_BANNER_URL,
+        bannerPosition: { x: 18, y: 82 },
         socialLinks: [
           {
             kind: "github",
@@ -136,6 +137,9 @@ test("shows a richer human profile with verified channel context", async ({
         .evaluate((image) => image.naturalWidth),
     )
     .toBeGreaterThan(0);
+  await expect(
+    panel.getByTestId("user-profile-banner").locator("img"),
+  ).toHaveCSS("object-position", "18% 82%");
   await expect(panel.getByTestId("user-profile-social-github-0")).toContainText(
     "github.com/fenner888",
   );
@@ -207,6 +211,25 @@ test("uploads a banner and saves social links from profile settings", async ({
         .evaluate((image) => image.naturalWidth),
     )
     .toBeGreaterThan(0);
+
+  await page.getByTestId("profile-banner-adjust").click();
+  await expect(
+    page.getByTestId("profile-banner-position-controls"),
+  ).toBeVisible();
+  await page.getByTestId("profile-banner-position-x").fill("28");
+  await page.getByTestId("profile-banner-position-y").fill("76");
+  await expect(
+    page.getByTestId("profile-banner-editor").locator("img"),
+  ).toHaveCSS("object-position", "28% 76%");
+  await page.getByTestId("profile-banner-position-save").click();
+  await expect(
+    page
+      .locator("[data-sonner-toast]")
+      .filter({ hasText: "Banner position saved" }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("profile-banner-position-controls"),
+  ).toHaveCount(0);
 
   await page.getByTestId("profile-metadata-edit").click();
   await page.getByTestId("profile-social-github").fill("github.com/fenner888");

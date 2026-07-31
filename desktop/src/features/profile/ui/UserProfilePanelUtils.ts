@@ -165,6 +165,7 @@ export function buildPersonaDraftProfile(persona: AgentPersona): Profile {
     about: null,
     website: null,
     bannerUrl: null,
+    bannerPosition: null,
     socialLinks: [],
     nip05Handle: null,
     ownerPubkey: null,

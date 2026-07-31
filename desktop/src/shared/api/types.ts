@@ -1,5 +1,6 @@
 export type {
   Profile,
+  ProfileBannerPosition,
   ProfileLink,
   ProfileLinkKind,
   UpdateProfileInput,

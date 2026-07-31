@@ -21,6 +21,10 @@ import {
 import { cn } from "@/shared/lib/cn";
 import { Spinner } from "@/shared/ui/spinner";
 import type { ProfileLink } from "@/shared/api/types";
+import {
+  DEFAULT_PROFILE_BANNER_POSITION,
+  type ProfileBannerPosition,
+} from "@/shared/api/profileTypes";
 import { PrivateKeyBackupRow } from "./PrivateKeyBackupRow";
 import { ProfileBannerEditor } from "./ProfileBannerEditor";
 import { ProfileMetadataEditor } from "./ProfileMetadataEditor";
@@ -108,12 +112,16 @@ export function ProfileSettingsCard({
   const currentAbout = profile?.about ?? "";
   const currentWebsite = profile?.website ?? "";
   const currentBannerUrl = profile?.bannerUrl ?? "";
+  const currentBannerPosition =
+    profile?.bannerPosition ?? DEFAULT_PROFILE_BANNER_POSITION;
   const currentSocialLinks = profile?.socialLinks ?? EMPTY_PROFILE_LINKS;
   const [displayNameDraft, setDisplayNameDraft] = React.useState("");
   const [avatarUrlDraft, setAvatarUrlDraft] = React.useState("");
   const [aboutDraft, setAboutDraft] = React.useState("");
   const [websiteDraft, setWebsiteDraft] = React.useState("");
   const [bannerUrlDraft, setBannerUrlDraft] = React.useState("");
+  const [bannerPositionDraft, setBannerPositionDraft] =
+    React.useState<ProfileBannerPosition>(DEFAULT_PROFILE_BANNER_POSITION);
   const [socialLinksDraft, setSocialLinksDraft] = React.useState<ProfileLink[]>(
     [],
   );
@@ -178,6 +186,13 @@ export function ProfileSettingsCard({
       setSocialLinksDraft(currentSocialLinks);
     }
   }, [currentBannerUrl, currentSocialLinks]);
+
+  React.useEffect(() => {
+    setBannerPositionDraft({
+      x: currentBannerPosition.x,
+      y: currentBannerPosition.y,
+    });
+  }, [currentBannerPosition.x, currentBannerPosition.y]);
 
   React.useEffect(() => {
     if (
@@ -519,9 +534,23 @@ export function ProfileSettingsCard({
 
   const handleBannerChange = React.useCallback(
     (url: string) => {
+      const position = DEFAULT_PROFILE_BANNER_POSITION;
       setBannerUrlDraft(url);
-      void updateProfileMutation.mutateAsync({ bannerUrl: url }).then(
-        () => toast.success(url ? "Banner saved" : "Banner removed"),
+      setBannerPositionDraft(position);
+      void updateProfileMutation
+        .mutateAsync({ bannerUrl: url, bannerPosition: position })
+        .then(
+          () => toast.success(url ? "Banner saved" : "Banner removed"),
+          () => undefined,
+        );
+    },
+    [updateProfileMutation.mutateAsync],
+  );
+  const handleBannerPositionChange = React.useCallback(
+    (position: ProfileBannerPosition) => {
+      setBannerPositionDraft(position);
+      void updateProfileMutation.mutateAsync({ bannerPosition: position }).then(
+        () => toast.success("Banner position saved"),
         () => undefined,
       );
     },
@@ -598,11 +627,13 @@ export function ProfileSettingsCard({
                     transition={avatarEditorLayoutTransition}
                   >
                     <ProfileBannerEditor
+                      bannerPosition={bannerPositionDraft}
                       bannerUrl={bannerUrlDraft}
                       disabled={
                         isAvatarEditorOpen || updateProfileMutation.isPending
                       }
                       onChange={handleBannerChange}
+                      onPositionChange={handleBannerPositionChange}
                       onUploadingChange={setIsUploadingBanner}
                     />
                     <div

@@ -15,6 +15,7 @@ type RawProfile = {
   about: string | null;
   website?: string | null;
   banner_url?: string | null;
+  banner_position?: Profile["bannerPosition"];
   social_links?: Profile["socialLinks"];
   nip05_handle: string | null;
   owner_pubkey: string | null;
@@ -46,6 +47,7 @@ function fromRawProfile(profile: RawProfile): Profile {
     about: profile.about,
     website: profile.website ?? null,
     bannerUrl: profile.banner_url ?? null,
+    bannerPosition: profile.banner_position ?? null,
     socialLinks: profile.social_links ?? [],
     nip05Handle: profile.nip05_handle,
     ownerPubkey: profile.owner_pubkey,

@@ -5,12 +5,13 @@ use crate::{
     events,
     managed_agents::persona_events::monotonic_created_at,
     models::{
-        ProfileInfo, ProfileLinkInfo, SearchUsersResponse, UserNotesResponse, UsersBatchResponse,
+        ProfileBannerPositionInfo, ProfileInfo, ProfileLinkInfo, SearchUsersResponse,
+        UserNotesResponse, UsersBatchResponse,
     },
     nostr_convert,
     profile_metadata::{
-        normalize_profile_banner, normalize_profile_links, normalize_profile_website,
-        profile_links_from_value,
+        normalize_profile_banner, normalize_profile_banner_position, normalize_profile_links,
+        normalize_profile_website, profile_banner_position_from_value, profile_links_from_value,
     },
     relay::{
         query_relay, query_relay_at_with_keys, relay_http_base_url, submit_event,
@@ -50,6 +51,7 @@ pub async fn update_profile(
     about: Option<String>,
     website: Option<String>,
     banner_url: Option<String>,
+    banner_position: Option<ProfileBannerPositionInfo>,
     social_links: Option<Vec<ProfileLinkInfo>>,
     nip05_handle: Option<String>,
     state: State<'_, AppState>,
@@ -97,6 +99,13 @@ pub async fn update_profile(
     let banner = normalized_banner
         .as_deref()
         .or_else(|| current.get("banner").and_then(Value::as_str));
+    let current_banner_position = profile_banner_position_from_value(&current);
+    let normalized_banner_position = banner_position
+        .map(normalize_profile_banner_position)
+        .transpose()?;
+    let banner_position = normalized_banner_position
+        .as_ref()
+        .or(current_banner_position.as_ref());
     let current_links = profile_links_from_value(&current);
     let normalized_links = social_links.map(normalize_profile_links).transpose()?;
     let links = normalized_links.as_deref().unwrap_or(&current_links);
@@ -112,6 +121,7 @@ pub async fn update_profile(
         website: web,
         nip05,
         banner,
+        banner_position,
         social_links: Some(links),
     })?;
     submit_event(builder, &state).await?;
@@ -194,6 +204,7 @@ fn build_deferred_profile_event(
     let website = current.get("website").and_then(Value::as_str);
     let nip05 = current.get("nip05").and_then(Value::as_str);
     let banner = current.get("banner").and_then(Value::as_str);
+    let banner_position = profile_banner_position_from_value(current);
     let social_links = profile_links_from_value(current);
 
     Ok(events::build_profile(events::ProfileMetadata {
@@ -204,6 +215,7 @@ fn build_deferred_profile_event(
         website,
         nip05,
         banner,
+        banner_position: banner_position.as_ref(),
         social_links: Some(&social_links),
     })?
     .custom_created_at(monotonic_created_at(
@@ -456,6 +468,7 @@ fn empty_profile_info(pubkey: &str) -> ProfileInfo {
         about: None,
         website: None,
         banner_url: None,
+        banner_position: None,
         social_links: Vec::new(),
         nip05_handle: None,
         owner_pubkey: None,

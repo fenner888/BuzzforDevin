@@ -34,6 +34,7 @@ pub struct ProfileInfo {
     pub about: Option<String>,
     pub website: Option<String>,
     pub banner_url: Option<String>,
+    pub banner_position: Option<ProfileBannerPositionInfo>,
     #[serde(default)]
     pub social_links: Vec<ProfileLinkInfo>,
     pub nip05_handle: Option<String>,
@@ -43,6 +44,12 @@ pub struct ProfileInfo {
     /// onboarding gate uses this to distinguish "new user with no profile" from
     /// "returning user whose display_name happens to be empty".
     pub has_profile_event: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfileBannerPositionInfo {
+    pub x: u8,
+    pub y: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
