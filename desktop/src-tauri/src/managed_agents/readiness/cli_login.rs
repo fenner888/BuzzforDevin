@@ -10,7 +10,7 @@ use crate::managed_agents::{
 
 use super::{cli_probe, Requirement};
 
-/// Requirements for runtimes with a catalog-declared CLI authentication probe.
+/// Requirements for CLI-login runtimes (claude, codex).
 pub(super) fn requirements(
     probe_args: &[&str],
     setup_copy: &str,
@@ -47,12 +47,7 @@ pub(super) fn requirements(
                 )];
             };
             let augmented_path = cli_probe::augmented_path();
-            match cli_probe::login_probe(
-                &binary_path,
-                probe_args,
-                augmented_path.as_deref(),
-                runtime.scrub_env_vars,
-            ) {
+            match cli_probe::login_probe(&binary_path, probe_args, augmented_path.as_deref()) {
                 cli_probe::ProbeOutcome::LoggedIn => vec![],
                 cli_probe::ProbeOutcome::LoggedOut => vec![missing_requirement(
                     probe_args,

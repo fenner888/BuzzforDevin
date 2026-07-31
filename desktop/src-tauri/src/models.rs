@@ -6,6 +6,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 pub struct IdentityInfo {
     pub pubkey: String,
     pub display_name: String,
+    /// Durable location of the active identity key.
+    pub storage: String,
     /// True when the app booted with an ephemeral key because the OS keyring
     /// was empty despite a prior successful migration (key was externally
     /// deleted). The frontend routes to the nsec re-import step when true.
@@ -30,6 +32,7 @@ pub struct ProfileInfo {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub about: Option<String>,
+    pub website: Option<String>,
     pub nip05_handle: Option<String>,
     pub owner_pubkey: Option<String>,
     /// `true` when a real kind:0 event was found on the relay; `false` for the

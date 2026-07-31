@@ -16,7 +16,6 @@ type ProfileAvatarProps = {
   className?: string;
   iconClassName?: string;
   imageClassName?: string;
-  imageStyle?: React.CSSProperties;
   plain?: boolean;
   testId?: string;
 };
@@ -28,7 +27,6 @@ export function ProfileAvatar({
   className,
   iconClassName,
   imageClassName,
-  imageStyle,
   plain = false,
   testId,
 }: ProfileAvatarProps) {
@@ -89,7 +87,6 @@ export function ProfileAvatar({
           }}
           referrerPolicy="no-referrer"
           src={src}
-          style={imageStyle}
         />
       ) : null}
       {shouldShowFallback ? (

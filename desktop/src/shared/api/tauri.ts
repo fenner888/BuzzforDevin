@@ -3,6 +3,10 @@ import {
   activateRateLimit,
   parseRateLimitHint,
 } from "@/shared/api/relayRateLimitGate";
+import {
+  fromRawInstallRuntimeResult,
+  type RawInstallRuntimeResult,
+} from "@/shared/api/installTypes";
 import type {
   AddChannelMembersInput,
   AddChannelMembersResult,
@@ -118,6 +122,8 @@ export type RawManagedAgent = {
   pubkey: string;
   name: string;
   persona_id: string | null;
+  // Optional: pre-feature fixtures may omit it. The record's harness/runtime id.
+  runtime?: string | null;
   team_id?: string | null;
   relay_url: string;
   acp_command: string;
@@ -131,11 +137,8 @@ export type RawManagedAgent = {
   parallelism: number;
   system_prompt: string | null;
   avatar_url?: string | null;
-  runtime_icon_url?: string | null;
-  runtime_avatar_url?: string | null;
-  runtime_superseded_avatar_urls?: string[];
-  supports_buzz_model_config?: boolean | null;
   model: string | null;
+  model_source?: ManagedAgent["modelSource"];
   provider: string | null;
   persona_out_of_date: boolean;
   persona_orphaned: boolean;
@@ -176,21 +179,7 @@ type RawManagedAgentLog = {
 export type RawAcpRuntimeCatalogEntry = {
   id: string;
   label: string;
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  display_label?: string;
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  sort_priority?: number;
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  onboarding_visible?: boolean;
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  icon_url?: string;
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  icon_scale?: number;
   avatar_url: string;
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  superseded_avatar_urls?: string[];
-  /** Optional only for older E2E fixtures; the Rust catalog always supplies it. */
-  supports_buzz_model_config?: boolean;
   availability: AcpAvailabilityStatus;
   command: string | null;
   binary_path: string | null;
@@ -209,24 +198,18 @@ export type RawAcpRuntimeCatalogEntry = {
   /** Tagged union with snake_case status values — same shape as `AuthStatus`. */
   auth_status: AuthStatus;
   login_hint?: string;
+  source: "builtin" | "preset" | "custom";
+  /**
+   * Definition-level env vars for `source: custom` entries.
+   * Omitted/absent for builtin and preset — skipped in Rust serialization when empty.
+   */
+  definition_env?: Record<string, string>;
 };
 
-export type RawInstallStepResult = {
-  step: string;
-  command: string;
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exit_code: number | null;
-  hint?: string;
-};
-
-export type RawInstallRuntimeResult = {
-  success: boolean;
-  steps: RawInstallStepResult[];
-  restarted_count: number;
-  failed_restart_count: number;
-};
+export type {
+  RawInstallRuntimeResult,
+  RawInstallStepResult,
+} from "./installTypes";
 
 type RawGitBashPrerequisite = {
   available: boolean;
@@ -478,6 +461,9 @@ export async function searchMessages(
     q: input.q,
     limit: input.limit,
     channelId: input.channelId,
+    authors: input.authors,
+    since: input.since,
+    until: input.until,
   });
 
   return {
@@ -705,6 +691,7 @@ export function fromRawManagedAgent(agent: RawManagedAgent): ManagedAgent {
     pubkey: agent.pubkey,
     name: agent.name,
     personaId: agent.persona_id,
+    runtime: agent.runtime ?? null,
     teamId: agent.team_id ?? null,
     relayUrl: agent.relay_url,
     acpCommand: agent.acp_command,
@@ -718,11 +705,9 @@ export function fromRawManagedAgent(agent: RawManagedAgent): ManagedAgent {
     parallelism: agent.parallelism,
     systemPrompt: agent.system_prompt,
     avatarUrl: agent.avatar_url ?? null,
-    runtimeIconUrl: agent.runtime_icon_url ?? null,
-    runtimeAvatarUrl: agent.runtime_avatar_url ?? null,
-    runtimeSupersededAvatarUrls: agent.runtime_superseded_avatar_urls ?? [],
-    supportsBuzzModelConfig: agent.supports_buzz_model_config ?? null,
     model: agent.model,
+    modelSource: agent.model_source ?? null,
+    // Fallbacks for pre-feature mocks/fixtures. Real records always carry them.
     provider: agent.provider ?? null,
     personaOutOfDate: agent.persona_out_of_date ?? false,
     personaOrphaned: agent.persona_orphaned ?? false,
@@ -749,20 +734,13 @@ export function fromRawManagedAgent(agent: RawManagedAgent): ManagedAgent {
   };
 }
 
-function fromRawAcpRuntimeCatalogEntry(
+export function fromRawAcpRuntimeCatalogEntry(
   entry: RawAcpRuntimeCatalogEntry,
 ): AcpRuntimeCatalogEntry {
   return {
     id: entry.id,
     label: entry.label,
-    displayLabel: entry.display_label ?? entry.label,
-    sortPriority: entry.sort_priority ?? 100,
-    onboardingVisible: entry.onboarding_visible ?? false,
-    iconUrl: entry.icon_url ?? entry.avatar_url,
-    iconScale: entry.icon_scale ?? 1,
     avatarUrl: entry.avatar_url,
-    supersededAvatarUrls: entry.superseded_avatar_urls ?? [],
-    supportsBuzzModelConfig: entry.supports_buzz_model_config ?? true,
     availability: entry.availability,
     command: entry.command,
     binaryPath: entry.binary_path,
@@ -779,25 +757,10 @@ function fromRawAcpRuntimeCatalogEntry(
     nodeRequired: entry.node_required,
     authStatus: entry.auth_status,
     loginHint: entry.login_hint ?? null,
-  };
-}
-
-function fromRawInstallRuntimeResult(
-  raw: RawInstallRuntimeResult,
-): InstallRuntimeResult {
-  return {
-    success: raw.success,
-    steps: raw.steps.map((step) => ({
-      step: step.step,
-      command: step.command,
-      success: step.success,
-      stdout: step.stdout,
-      stderr: step.stderr,
-      exitCode: step.exit_code,
-      hint: step.hint,
-    })),
-    restartedCount: raw.restarted_count,
-    failedRestartCount: raw.failed_restart_count,
+    source: entry.source,
+    // Map definition_env (snake_case from Rust) to definitionEnv (camelCase).
+    // Absent when empty (Rust serialization skips empty BTreeMap) — default to {}.
+    definitionEnv: entry.definition_env ?? {},
   };
 }
 
@@ -958,6 +921,45 @@ export async function discoverAcpRuntimes(): Promise<AcpRuntimeCatalogEntry[]> {
   return (
     await invokeTauri<RawAcpRuntimeCatalogEntry[]>("discover_acp_providers")
   ).map(fromRawAcpRuntimeCatalogEntry);
+}
+
+/** Input shape for creating or updating a custom harness. */
+export type HarnessDefinitionInput = {
+  id: string;
+  label: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  installInstructionsUrl?: string;
+  installHint?: string;
+};
+
+/** Save (create or overwrite) a custom harness definition. Returns the catalog entry. */
+export async function saveCustomHarness(
+  definition: HarnessDefinitionInput,
+  originalId?: string,
+): Promise<AcpRuntimeCatalogEntry> {
+  const raw = await invokeTauri<RawAcpRuntimeCatalogEntry>(
+    "save_custom_harness",
+    {
+      definition: {
+        id: definition.id,
+        label: definition.label,
+        command: definition.command,
+        args: definition.args ?? [],
+        env: definition.env ?? {},
+        installInstructionsUrl: definition.installInstructionsUrl ?? "",
+        installHint: definition.installHint ?? "",
+      },
+      originalId: originalId ?? null,
+    },
+  );
+  return fromRawAcpRuntimeCatalogEntry(raw);
+}
+
+/** Delete a custom harness definition by id. No-op if already gone. */
+export async function deleteCustomHarness(id: string): Promise<void> {
+  await invokeTauri<void>("delete_custom_harness", { id });
 }
 
 export async function installAcpRuntime(

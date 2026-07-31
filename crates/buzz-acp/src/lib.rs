@@ -885,103 +885,9 @@ fn handle_relay_observer_control_event(
         Some("switch_model") => {
             handle_switch_model_control(&payload, pool, observer);
         }
-        Some("permission_decision") => {
-            handle_permission_decision_control(&payload, pool, observer);
-        }
         _ => {
             tracing::debug!(payload = %payload, "ignoring unknown observer control frame");
         }
-    }
-}
-
-/// Resolve one ACP permission request from an owner-signed encrypted control.
-///
-/// Only per-request `allow_once` and `reject_once` decisions are accepted.
-/// Channel, turn, and JSON-RPC request ids must all match the live task.
-fn handle_permission_decision_control(
-    payload: &serde_json::Value,
-    pool: &mut AgentPool,
-    observer: Option<&observer::ObserverHandle>,
-) {
-    let Some(channel_id) = payload
-        .get("channelId")
-        .and_then(|value| value.as_str())
-        .and_then(|value| value.parse::<Uuid>().ok())
-    else {
-        tracing::warn!("permission decision control missing valid channelId");
-        return;
-    };
-    let Some(turn_id) = payload.get("turnId").and_then(|value| value.as_str()) else {
-        tracing::warn!("permission decision control missing turnId");
-        return;
-    };
-    let Some(request_id) = payload
-        .get("requestId")
-        .filter(|value| value.is_string() || value.is_number())
-        .cloned()
-    else {
-        tracing::warn!("permission decision control missing valid requestId");
-        return;
-    };
-    let selection = match payload.get("optionId").and_then(|value| value.as_str()) {
-        Some(option_id) if !option_id.is_empty() && option_id.len() <= 512 => {
-            pool::PermissionSelection::OptionId(option_id.to_string())
-        }
-        Some(_) => {
-            tracing::warn!("permission optionId must be a non-empty string of at most 512 bytes");
-            return;
-        }
-        None => match payload.get("decision").and_then(|value| value.as_str()) {
-            Some("allow_once") => pool::PermissionSelection::Kind("allow_once".to_string()),
-            Some("reject_once") => pool::PermissionSelection::Kind("reject_once".to_string()),
-            _ => {
-                tracing::warn!(
-                    "permission decision must include optionId or a legacy allow_once/reject_once decision"
-                );
-                return;
-            }
-        },
-    };
-    let selected_option_id = match &selection {
-        pool::PermissionSelection::OptionId(option_id) => Some(option_id.clone()),
-        pool::PermissionSelection::Kind(_) => None,
-    };
-    let selected_kind = match &selection {
-        pool::PermissionSelection::Kind(kind) => Some(kind.clone()),
-        pool::PermissionSelection::OptionId(_) => None,
-    };
-
-    let status = match pool.send_permission_decision(
-        channel_id,
-        turn_id,
-        pool::PermissionDecision {
-            request_id,
-            selection,
-        },
-    ) {
-        Ok(()) => "sent",
-        Err(pool::PermissionDecisionError::NoActiveTurn) => "no_active_turn",
-        Err(pool::PermissionDecisionError::StaleTurn) => "stale_turn",
-        Err(pool::PermissionDecisionError::Unavailable) => "unavailable",
-    };
-
-    if let Some(observer) = observer {
-        observer.emit(
-            "control_result",
-            None,
-            &observer::ObserverContext {
-                channel_id: Some(channel_id.to_string()),
-                session_id: None,
-                turn_id: Some(turn_id.to_string()),
-                started_at: None,
-            },
-            serde_json::json!({
-                "type": "permission_decision",
-                "status": status,
-                "optionId": selected_option_id,
-                "decision": selected_kind,
-            }),
-        );
     }
 }
 
@@ -1234,9 +1140,7 @@ fn any_respawn_in_flight(crash_history: &[SlotCircuit]) -> bool {
 /// Result of a background respawn task.
 struct RespawnResult {
     index: usize,
-    /// Tuple: (initialized client, protocol version, supports_goose_steer).
-    /// The third element is always `true` — the supervisor uses
-    /// try-and-tolerate for the steer extension.
+    /// Tuple: (initialized client, protocol version, agent name).
     result: Result<(AcpClient, u32, String)>,
 }
 
@@ -1629,6 +1533,7 @@ async fn tokio_main() -> Result<()> {
         turn_liveness_interval: Duration::from_secs(config.turn_liveness_secs),
         dedup_mode: config.dedup_mode,
         system_prompt: config.system_prompt.clone(),
+        session_title: config.session_title.clone(),
         team_instructions: config.team_instructions.clone(),
         base_prompt: if config.no_base_prompt {
             None
@@ -1647,8 +1552,6 @@ async fn tokio_main() -> Result<()> {
         context_message_limit: config.context_message_limit,
         max_turns_per_session: config.max_turns_per_session,
         permission_mode: config.permission_mode,
-        auto_approve_permissions: config.auto_approve_permissions,
-        interactive_permissions: config.interactive_permissions,
         agent_keys: config.keys.clone(),
         agent_owner_pubkey: startup_owner
             .as_deref()
@@ -1723,13 +1626,6 @@ async fn tokio_main() -> Result<()> {
     //      withheld event in `EventQueue::withheld_native_steer` until
     //      `IN_FLIGHT_DEADLINE_SECS` expires.
     let (steer_ack_tx, mut steer_ack_rx) = mpsc::unbounded_channel::<SteerAckEvent>();
-    // Runtime-scoped compatibility recovery for ACP adapters that publish a
-    // visible Buzz result but fail to finish `session/prompt`. One pending
-    // timer per turn bounds task/channel growth even if the agent publishes
-    // several messages during the grace window.
-    let (self_publish_completion_tx, mut self_publish_completion_rx) =
-        mpsc::unbounded_channel::<(Uuid, String, String)>();
-    let mut pending_self_publish_completions = HashSet::<String>::new();
 
     // ── Step 7: Shutdown signal ───────────────────────────────────────────────
     let (shutdown_tx, mut shutdown_rx) = watch::channel(());
@@ -1804,11 +1700,6 @@ async fn tokio_main() -> Result<()> {
         Result(Box<PromptResult>),
         Panic(tokio::task::JoinError),
         SteerAck(SteerAckEvent),
-        SelfPublishCompletion {
-            channel_id: Uuid,
-            turn_id: String,
-            event_id: String,
-        },
         Wake(u32, Result<AgentPool, String>),
     }
 
@@ -1951,15 +1842,6 @@ async fn tokio_main() -> Result<()> {
                 // locked semantics (Eva + Max + Perci).
                 Some(ack_event) = steer_ack_rx.recv() => {
                     Some(PoolEvent::SteerAck(ack_event))
-                }
-                Some((channel_id, turn_id, event_id)) = self_publish_completion_rx.recv(),
-                    if config.self_publish_completion_grace_secs > 0 =>
-                {
-                    Some(PoolEvent::SelfPublishCompletion {
-                        channel_id,
-                        turn_id,
-                        event_id,
-                    })
                 }
                 Some((attempt, result)) = wake_rx.recv(), if config.lazy_pool && !pool_ready => {
                     Some(PoolEvent::Wake(attempt, result))
@@ -2139,29 +2021,6 @@ async fn tokio_main() -> Result<()> {
                                     }
                                 }
                                 continue;
-                            }
-
-                            if buzz_event.event.pubkey.to_hex() == pubkey_hex
-                                && kind_u32 == KIND_STREAM_MESSAGE
-                                && config.self_publish_completion_grace_secs > 0
-                            {
-                                if let Some(turn_id) =
-                                    in_flight_turn_id(&pool, buzz_event.channel_id)
-                                {
-                                    let turn_id = turn_id.to_owned();
-                                    if pending_self_publish_completions.insert(turn_id.clone()) {
-                                        let tx = self_publish_completion_tx.clone();
-                                        let channel_id = buzz_event.channel_id;
-                                        let event_id = buzz_event.event.id.to_hex();
-                                        let grace = Duration::from_secs(
-                                            config.self_publish_completion_grace_secs,
-                                        );
-                                        tokio::spawn(async move {
-                                            tokio::time::sleep(grace).await;
-                                            let _ = tx.send((channel_id, turn_id, event_id));
-                                        });
-                                    }
-                                }
                             }
 
                             if config.ignore_self && buzz_event.event.pubkey.to_hex() == pubkey_hex {
@@ -2367,18 +2226,18 @@ async fn tokio_main() -> Result<()> {
                                     owner_cache.get(),
                                 );
                                 if let Some(signal) = signal {
-                                    // Try-and-tolerate fork: when the mode
-                                    // wants a Steer, attempt the non-cancelling
-                                    // path first for any agent. On accept,
+                                    // Non-cancelling fork: when the mode
+                                    // wants a Steer, attempt the
+                                    // non-cancelling path first. On accept,
                                     // withhold the queued event and spawn an
                                     // ack watcher; the main loop's
                                     // `PoolEvent::SteerAck` arm decides
                                     // success/release/fallback. On reject
-                                    // (including `-32601 method_not_found`
-                                    // from agents that don't implement the
-                                    // extension), fall through to the universal
-                                    // cancel+merge `Steer` signal so the event
-                                    // still reaches the agent.
+                                    // (including agents that advertise no
+                                    // steer transport at all), fall through
+                                    // to the universal cancel+merge `Steer`
+                                    // signal so the event still reaches the
+                                    // agent.
                                     let native_attempted = matches!(signal, ControlSignal::Steer)
                                         && try_native_steer(
                                             &mut pool,
@@ -2558,13 +2417,25 @@ async fn tokio_main() -> Result<()> {
                 event_id,
                 ack,
             })) => {
-                // Goose-native steer attempt resolved. Locked semantics
-                // (Eva + Max + Perci, unanimous on Option X):
+                // Mid-turn steer attempt resolved (either transport:
+                // `_goose/unstable/session/steer` or `_session/steering`).
+                // Locked semantics (Eva + Max + Perci, unanimous on Option X):
                 //
                 //   Success
                 //     The agent received the steer via the non-cancelling
                 //     path. Drop the withheld event so normal dispatch
                 //     never redelivers it.
+                //
+                //     Also covers `_session/steering`'s `startedNewTurn`
+                //     outcome: the message was delivered, but into a fresh
+                //     turn because the one being steered had already
+                //     finished. Delivery is what this arm keys on, so the
+                //     event is still dropped. The read loop deliberately
+                //     does NOT renew its hard deadline in that case (the
+                //     awaited turn is settled), while
+                //     `extend_in_flight_deadline` below still applies —
+                //     the agent really is running more work, so the
+                //     channel's in-flight budget should reflect it.
                 //
                 //   Err(_) where the write never landed (Transport /
                 //   ExpectedRunIdMissing):
@@ -2572,6 +2443,16 @@ async fn tokio_main() -> Result<()> {
                 //     attempted on the wire". Release withheld back to the
                 //     queue front AND issue the cancel+merge fallback so
                 //     the message still reaches the agent.
+                //
+                //   Err(OutcomeRejected { .. })
+                //     A `_session/steering` request returned a JSON-RPC
+                //     success whose `outcome` was not `injected` or
+                //     `startedNewTurn` (codex's `failed`, an unknown value,
+                //     or a bare `{}` with no `outcome` at all). The steer
+                //     did not land, so this is treated exactly like a write
+                //     that never happened: release withheld AND fire the
+                //     cancel+merge fallback. Handled by the catch-all
+                //     `Err(_)` arm below.
                 //
                 //   Err(AgentError { code: -32601, .. })
                 //     The agent returned method_not_found — it does not
@@ -2629,9 +2510,9 @@ async fn tokio_main() -> Result<()> {
                     Ok(pool::SteerAck::Err(pool::SteerError::AgentError { .. })) => {
                         (true, false, false)
                     }
-                    // Transport / ExpectedRunIdMissing: write never landed.
-                    // Release and fire the cancel+merge fallback so the
-                    // message still reaches the agent.
+                    // Transport / ExpectedRunIdMissing / OutcomeRejected: the
+                    // steer did not land. Release and fire the cancel+merge
+                    // fallback so the message still reaches the agent.
                     Ok(pool::SteerAck::Err(_)) => (true, false, true),
                     Ok(pool::SteerAck::PromptCompletedNeutral) => (true, false, false),
                     Err(_recv_err) => (true, false, false),
@@ -2671,34 +2552,6 @@ async fn tokio_main() -> Result<()> {
                 // task has already returned.
                 for (channel_id, thread_tags) in dispatch_pending(&mut pool, &mut queue, &ctx) {
                     typing_channels.insert(channel_id, thread_tags);
-                }
-            }
-            Some(PoolEvent::SelfPublishCompletion {
-                channel_id,
-                turn_id,
-                event_id,
-            }) => {
-                pending_self_publish_completions.remove(&turn_id);
-                if signal_exact_in_flight_task(
-                    &mut pool,
-                    channel_id,
-                    &turn_id,
-                    ControlSignal::PublishedResult,
-                ) {
-                    tracing::warn!(
-                        channel = %channel_id,
-                        turn_id,
-                        event_id,
-                        grace_secs = config.self_publish_completion_grace_secs,
-                        "self-authored result was published but ACP turn remained open — completing exact turn"
-                    );
-                } else {
-                    tracing::debug!(
-                        channel = %channel_id,
-                        turn_id,
-                        event_id,
-                        "self-publish completion grace elapsed after turn already finished"
-                    );
                 }
             }
             Some(PoolEvent::Wake(attempt, result)) => {
@@ -2896,14 +2749,6 @@ fn is_owner_control_command(
 
 // ── signal_in_flight_task ─────────────────────────────────────────────────────
 
-/// Return the turn id currently checked out for `channel_id`.
-fn in_flight_turn_id(pool: &AgentPool, channel_id: uuid::Uuid) -> Option<&str> {
-    pool.task_map()
-        .values()
-        .find(|meta| meta.channel_id == Some(channel_id))
-        .map(|meta| meta.turn_id.as_str())
-}
-
 /// Decide which [`ControlSignal`] (if any) to send to an in-flight turn when a
 /// new, already-author-gated event arrives for that channel.
 ///
@@ -2945,36 +2790,6 @@ fn signal_in_flight_task(
     if let Some(meta) = entry {
         if let Some(tx) = meta.control_tx.take() {
             tracing::info!(channel = %channel_id, ?mode, "control signal sent to in-flight task");
-            let _ = tx.send(mode);
-            return true;
-        }
-    }
-    false
-}
-
-/// Send a control signal only when both channel and turn id still match.
-///
-/// Delayed compatibility timers use this stricter boundary so a stale timer
-/// from a completed turn can never cancel later work in the same channel.
-fn signal_exact_in_flight_task(
-    pool: &mut AgentPool,
-    channel_id: uuid::Uuid,
-    turn_id: &str,
-    mode: ControlSignal,
-) -> bool {
-    let entry = pool
-        .task_map_mut()
-        .values_mut()
-        .find(|meta| meta.channel_id == Some(channel_id) && meta.turn_id == turn_id);
-
-    if let Some(meta) = entry {
-        if let Some(tx) = meta.control_tx.take() {
-            tracing::info!(
-                channel = %channel_id,
-                turn_id,
-                ?mode,
-                "exact-turn control signal sent to in-flight task"
-            );
             let _ = tx.send(mode);
             return true;
         }
@@ -3131,21 +2946,18 @@ fn dispatch_pending(
         let ctx_clone = Arc::clone(ctx);
         let agent_index = agent.index;
 
-        // Goose-native non-cancelling steer seam: snapshot capability before
-        // the agent moves into `run_prompt_task`, and install the per-turn
-        // steer receiver on the read loop so the main loop's mode-gate fork
+        // Mid-turn non-cancelling steer seam: install the per-turn steer
+        // receiver on the read loop so the main loop's mode-gate fork
         // (see the `if accepted && queue.is_channel_in_flight(...)` block
         // in the relay event branch of the main `select!` loop) can drive
         // it via the matching sender stored in `TaskMeta.steer_tx`.
-        // Install the steer channel for every prompt task — the supervisor
-        // uses try-and-tolerate: it attempts the steer for any agent and
-        // treats `-32601 method_not_found` as "fall back to cancel+merge".
+        // Installed for every prompt task: the read loop picks the steer
+        // transport at write time from `active_run_id` and the agent's
+        // advertised `_session/steering` capability, and acks
+        // `ExpectedRunIdMissing` (→ cancel+merge) when it has neither.
         let (tx, rx) = tokio::sync::mpsc::channel::<pool::SteerRequest>(1);
         agent.acp.install_steer_rx(rx);
         let steer_tx = Some(tx);
-        let (permission_tx, permission_rx) =
-            tokio::sync::mpsc::channel::<pool::PermissionDecision>(4);
-        agent.acp.install_permission_rx(permission_rx);
 
         // Prompt text is now built inside run_prompt_task (needs async for
         // context fetching). Pass None for prompt_text; batch carries the data.
@@ -3175,7 +2987,6 @@ fn dispatch_pending(
                 recoverable_batch,
                 control_tx: Some(control_tx),
                 steer_tx,
-                permission_tx: Some(permission_tx),
             },
         );
         dispatched_channels.push((channel_id, typing_scope));
@@ -3789,7 +3600,6 @@ fn dispatch_heartbeat(
             recoverable_batch: None,
             control_tx: None,
             steer_tx: None,
-            permission_tx: None,
         },
     );
     *heartbeat_in_flight = true;
@@ -3814,6 +3624,22 @@ mod agent_draft_prompt_tests {
         assert!(prompt.contains("pass real newline bytes through stdin"));
         assert!(prompt.contains("single-quoted shell strings preserve `\\n` literally"));
         assert!(prompt.contains("buzz messages send ... --content -"));
+    }
+
+    #[test]
+    fn shared_base_prompt_teaches_single_command_mentions_and_preflight() {
+        let prompt = include_str!("base_prompt.md");
+        assert!(prompt.contains("--mention <hex-or-npub>"));
+        assert!(prompt.contains("every presentation-only name that should notify"));
+        assert!(
+            prompt.contains("permits unresolved or ambiguous `@Name` text as presentation-only")
+        );
+        assert!(prompt.contains("success JSON's `mention_pubkeys`"));
+        assert!(prompt.contains("no follow-up verification command is needed"));
+        assert!(prompt.contains("stops before sending"));
+        assert!(prompt
+            .contains("add them explicitly with `buzz channels add-member` only when authorized"));
+        assert!(prompt.contains("never changes membership automatically"));
     }
 }
 
@@ -3953,11 +3779,6 @@ async fn initialize_agent_pool(
     startup: &PoolStartup,
     mut shutdown: Option<watch::Receiver<()>>,
 ) -> Result<AgentPool> {
-    let pool_started_at = std::time::Instant::now();
-    tracing::info!(
-        agents = startup.agents,
-        "ACP agent pool initialization started"
-    );
     // One agent failing to start must not kill the whole pool.
     // Attempt each spawn under a 60-second timeout; a partial pool is valid.
     let mut agent_slots: Vec<Option<OwnedAgent>> = Vec::with_capacity(startup.agents as usize);
@@ -3998,7 +3819,8 @@ async fn initialize_agent_pool(
                                 .and_then(|info| info.get("name"))
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("unknown"),
-                            "agent initialized — non-cancelling steer enabled (try-and-tolerate)"
+                            steering_supported = acp.steering_supported(),
+                            "agent initialized"
                         );
                         acp.observe(
                             "agent_initialized",
@@ -4052,11 +3874,7 @@ async fn initialize_agent_pool(
             startup.agents
         );
     }
-    tracing::info!(
-        agents = live_count,
-        elapsed_ms = pool_started_at.elapsed().as_millis() as u64,
-        "agent_pool_ready"
-    );
+    tracing::info!("agent_pool_ready agents={}", live_count);
     Ok(AgentPool::from_slots(agent_slots))
 }
 
@@ -4246,7 +4064,7 @@ async fn run_models(args: ModelsArgs) -> Result<()> {
     // so shutdown() runs on all paths (success, error, timeout).
     let protocol_result = tokio::time::timeout(MODELS_TIMEOUT, async {
         let init = client.initialize().await?;
-        let session = client.session_new_full(&cwd, vec![], None).await?;
+        let session = client.session_new_full(&cwd, vec![], None, None).await?;
         Ok::<_, acp::AcpError>((init, session))
     })
     .await;
@@ -4398,6 +4216,18 @@ fn build_mcp_servers(config: &Config) -> Vec<McpServer> {
                     });
                 }
             }
+            // Forward the agent's display name so dev-mcp can use it as the git
+            // author name instead of the raw npub. Read from the process env
+            // rather than Config: this is a pass-through of a contract owned
+            // upstream, and absent simply means dev-mcp falls back to the npub.
+            if let Ok(display_name) = std::env::var("BUZZ_ACP_DISPLAY_NAME") {
+                if !display_name.is_empty() {
+                    env.push(EnvVar {
+                        name: "BUZZ_ACP_DISPLAY_NAME".into(),
+                        value: display_name,
+                    });
+                }
+            }
             env
         },
     }]
@@ -4541,7 +4371,6 @@ mod owner_control_command_tests {
                 recoverable_batch: None,
                 control_tx: Some(control_tx),
                 steer_tx: None,
-                permission_tx: None,
             },
         );
 
@@ -4560,120 +4389,6 @@ mod owner_control_command_tests {
             &mut pool,
             channel_id,
             ControlSignal::Rotate
-        ));
-    }
-
-    #[tokio::test]
-    async fn self_publish_completion_signal_requires_the_exact_turn() {
-        let mut pool = AgentPool::from_slots(vec![]);
-        let channel_id = Uuid::new_v4();
-        let (control_tx, control_rx) = tokio::sync::oneshot::channel();
-        let abort_handle = pool.join_set.spawn(async {});
-        pool.task_map_mut().insert(
-            abort_handle.id(),
-            pool::TaskMeta {
-                agent_index: 0,
-                channel_id: Some(channel_id),
-                turn_id: "current-turn".to_string(),
-                recoverable_batch: None,
-                control_tx: Some(control_tx),
-                steer_tx: None,
-                permission_tx: None,
-            },
-        );
-
-        assert_eq!(in_flight_turn_id(&pool, channel_id), Some("current-turn"));
-        assert!(!signal_exact_in_flight_task(
-            &mut pool,
-            channel_id,
-            "stale-turn",
-            ControlSignal::PublishedResult,
-        ));
-        assert!(signal_exact_in_flight_task(
-            &mut pool,
-            channel_id,
-            "current-turn",
-            ControlSignal::PublishedResult,
-        ));
-        assert_eq!(control_rx.await.unwrap(), ControlSignal::PublishedResult);
-    }
-
-    #[tokio::test]
-    async fn permission_control_forwards_exact_option_and_preserves_numeric_request_id() {
-        let mut pool = AgentPool::from_slots(vec![None]);
-        let channel_id = Uuid::new_v4();
-        let (permission_tx, mut permission_rx) =
-            tokio::sync::mpsc::channel::<pool::PermissionDecision>(1);
-        let abort_handle = pool.join_set.spawn(async {});
-        pool.task_map_mut().insert(
-            abort_handle.id(),
-            pool::TaskMeta {
-                agent_index: 0,
-                channel_id: Some(channel_id),
-                turn_id: "permission-turn".to_string(),
-                recoverable_batch: None,
-                control_tx: None,
-                steer_tx: None,
-                permission_tx: Some(permission_tx),
-            },
-        );
-
-        handle_permission_decision_control(
-            &serde_json::json!({
-                "type": "permission_decision",
-                "channelId": channel_id,
-                "turnId": "permission-turn",
-                "requestId": 42,
-                "optionId": "allow-buzz-messages-in-workspace",
-            }),
-            &mut pool,
-            None,
-        );
-        let decision = permission_rx
-            .recv()
-            .await
-            .expect("exact permission selection should be delivered");
-        assert_eq!(decision.request_id, serde_json::json!(42));
-        assert_eq!(
-            decision.selection,
-            pool::PermissionSelection::OptionId("allow-buzz-messages-in-workspace".to_string())
-        );
-    }
-
-    #[tokio::test]
-    async fn permission_control_rejects_invalid_option_ids() {
-        let mut pool = AgentPool::from_slots(vec![None]);
-        let channel_id = Uuid::new_v4();
-        let (permission_tx, mut permission_rx) =
-            tokio::sync::mpsc::channel::<pool::PermissionDecision>(1);
-        let abort_handle = pool.join_set.spawn(async {});
-        pool.task_map_mut().insert(
-            abort_handle.id(),
-            pool::TaskMeta {
-                agent_index: 0,
-                channel_id: Some(channel_id),
-                turn_id: "permission-turn".to_string(),
-                recoverable_batch: None,
-                control_tx: None,
-                steer_tx: None,
-                permission_tx: Some(permission_tx),
-            },
-        );
-
-        handle_permission_decision_control(
-            &serde_json::json!({
-                "type": "permission_decision",
-                "channelId": channel_id,
-                "turnId": "permission-turn",
-                "requestId": 42,
-                "optionId": "",
-            }),
-            &mut pool,
-            None,
-        );
-        assert!(matches!(
-            permission_rx.try_recv(),
-            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
         ));
     }
 }
@@ -5298,7 +5013,6 @@ mod build_mcp_servers_tests {
             dedup_mode: config::DedupMode::Queue,
             multiple_event_handling: config::MultipleEventHandling::Queue,
             ignore_self: true,
-            self_publish_completion_grace_secs: 0,
             kinds_override: None,
             channels_override: None,
             no_mention_filter: false,
@@ -5309,9 +5023,8 @@ mod build_mcp_servers_tests {
             typing_enabled: true,
             memory_enabled: false,
             model: None,
+            session_title: None,
             permission_mode: config::PermissionMode::BypassPermissions,
-            auto_approve_permissions: true,
-            interactive_permissions: false,
             respond_to: config::RespondTo::Anyone,
             respond_to_allowlist: std::collections::HashSet::new(),
             allowed_respond_to: vec![],
@@ -5372,6 +5085,60 @@ mod build_mcp_servers_tests {
         let server = &servers[0];
         let has_auth_tag = server.env.iter().any(|e| e.name == "BUZZ_AUTH_TAG");
         assert!(!has_auth_tag, "empty BUZZ_AUTH_TAG should not be forwarded");
+    }
+
+    #[test]
+    fn test_display_name_set_is_forwarded_to_mcp_server() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("BUZZ_ACP_DISPLAY_NAME", "Duncan");
+        let config = test_config();
+        let servers = build_mcp_servers(&config);
+        std::env::remove_var("BUZZ_ACP_DISPLAY_NAME");
+
+        let entry = servers[0]
+            .env
+            .iter()
+            .find(|e| e.name == "BUZZ_ACP_DISPLAY_NAME");
+        assert_eq!(
+            entry.map(|e| e.value.as_str()),
+            Some("Duncan"),
+            "a set display name should reach the MCP server verbatim"
+        );
+    }
+
+    #[test]
+    fn test_display_name_unset_omits_the_key_entirely() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("BUZZ_ACP_DISPLAY_NAME");
+        let config = test_config();
+        let servers = build_mcp_servers(&config);
+
+        // Absent, not empty-valued: dev-mcp distinguishes the two and only
+        // falls back to the npub when the key is missing or blank.
+        assert!(
+            !servers[0]
+                .env
+                .iter()
+                .any(|e| e.name == "BUZZ_ACP_DISPLAY_NAME"),
+            "unset display name should not add the key"
+        );
+    }
+
+    #[test]
+    fn test_display_name_empty_omits_the_key_entirely() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("BUZZ_ACP_DISPLAY_NAME", "");
+        let config = test_config();
+        let servers = build_mcp_servers(&config);
+        std::env::remove_var("BUZZ_ACP_DISPLAY_NAME");
+
+        assert!(
+            !servers[0]
+                .env
+                .iter()
+                .any(|e| e.name == "BUZZ_ACP_DISPLAY_NAME"),
+            "empty display name should not be forwarded"
+        );
     }
 
     #[test]
@@ -5467,7 +5234,6 @@ mod error_outcome_emission_tests {
             dedup_mode: config::DedupMode::Queue,
             multiple_event_handling: config::MultipleEventHandling::Queue,
             ignore_self: true,
-            self_publish_completion_grace_secs: 0,
             kinds_override: None,
             channels_override: None,
             no_mention_filter: false,
@@ -5478,9 +5244,8 @@ mod error_outcome_emission_tests {
             typing_enabled: true,
             memory_enabled: false,
             model: None,
+            session_title: None,
             permission_mode: config::PermissionMode::BypassPermissions,
-            auto_approve_permissions: true,
-            interactive_permissions: false,
             respond_to: config::RespondTo::Anyone,
             respond_to_allowlist: HashSet::new(),
             allowed_respond_to: vec![],
@@ -5551,7 +5316,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
 
@@ -5628,7 +5392,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         started_rx.await.unwrap();
@@ -5721,7 +5484,6 @@ mod error_outcome_emission_tests {
                     recoverable_batch: None,
                     control_tx: None,
                     steer_tx: None,
-                    permission_tx: None,
                 },
             );
             let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -5813,7 +5575,6 @@ mod error_outcome_emission_tests {
                     recoverable_batch: None,
                     control_tx: None,
                     steer_tx: None,
-                    permission_tx: None,
                 },
             );
             let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -5919,7 +5680,6 @@ mod error_outcome_emission_tests {
                     recoverable_batch: None,
                     control_tx: None,
                     steer_tx: None,
-                    permission_tx: None,
                 },
             );
             let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -5996,7 +5756,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -6091,7 +5850,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         let config = test_config();
@@ -6208,7 +5966,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -6348,7 +6105,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -6537,7 +6293,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         let mut queue = EventQueue::new(config::DedupMode::Queue);
@@ -6623,7 +6378,6 @@ mod error_outcome_emission_tests {
                 recoverable_batch: None,
                 control_tx: None,
                 steer_tx: None,
-                permission_tx: None,
             },
         );
         let mut queue = EventQueue::new(config::DedupMode::Queue);

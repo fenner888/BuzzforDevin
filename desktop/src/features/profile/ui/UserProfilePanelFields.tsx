@@ -6,18 +6,26 @@ import {
   Cpu,
   Ear,
   Fingerprint,
+  Globe2,
   Server,
+  ShieldCheck,
   Terminal,
   UserRound,
 } from "lucide-react";
 import * as React from "react";
 import { AgentStatusBadge } from "@/features/agents/ui/AgentStatusBadge";
+import { formatChannelRole } from "@/features/profile/lib/profileMemberContext";
+import {
+  normalizeProfileWebsite,
+  profileWebsiteDisplayValue,
+} from "@/features/profile/lib/profileWebsite";
 import { truncatePubkey } from "@/shared/lib/pubkey";
 import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { PubKey } from "@/shared/ui/PubKey";
 import { UserAvatar } from "@/shared/ui/UserAvatar";
 import type {
   AgentPersona,
+  ChannelRole,
   ManagedAgent,
   Profile,
   RelayAgent,
@@ -47,6 +55,8 @@ export type ProfileField = {
 
 const AGENT_INFO_LABELS = new Set([
   "Public key",
+  "Website",
+  "Channel role",
   "Managed by",
   "NIP-05",
   "Agent type",
@@ -56,7 +66,7 @@ const AGENT_INFO_LABELS = new Set([
 const AGENT_SETTINGS_LABELS = new Set([
   "Runtime",
   "Agent profile",
-  "Respond to",
+  "Who can send instructions",
   "ACP command",
   "MCP command",
   "Start on launch",
@@ -80,6 +90,8 @@ export function bucketProfileFields(fields: ProfileField[]) {
 export function useProfileFieldBuckets({
   isBot,
   isOwner,
+  channelRole,
+  channelName,
   managedAgent,
   onOpenProfile,
   ownerAvatarUrl,
@@ -96,6 +108,8 @@ export function useProfileFieldBuckets({
 }: {
   isBot: boolean;
   isOwner: boolean | undefined;
+  channelRole: ChannelRole | null;
+  channelName: string | null;
   managedAgent: ManagedAgent | undefined;
   onOpenProfile?: (pubkey: string) => void;
   ownerAvatarUrl: string | null;
@@ -112,7 +126,15 @@ export function useProfileFieldBuckets({
 }) {
   return React.useMemo(() => {
     const metadataFields = [
-      ...buildPublicFields({ pubkey, profile, relayAgent, isBot, persona }),
+      ...buildPublicFields({
+        channelRole,
+        channelName,
+        isBot,
+        persona,
+        profile,
+        pubkey,
+        relayAgent,
+      }),
       ...(ownerDisplayName || isOwner === true
         ? buildOwnerFields({
             includeOperationalFields: isOwner === true,
@@ -132,6 +154,8 @@ export function useProfileFieldBuckets({
     ];
     return bucketProfileFields(metadataFields);
   }, [
+    channelRole,
+    channelName,
     isBot,
     isOwner,
     managedAgent,
@@ -151,12 +175,16 @@ export function useProfileFieldBuckets({
 }
 
 export function buildPublicFields({
+  channelRole,
+  channelName,
   isBot,
   persona,
   profile,
   pubkey,
   relayAgent,
 }: {
+  channelRole: ChannelRole | null;
+  channelName: string | null;
   isBot: boolean;
   persona?: AgentPersona;
   profile: Profile | undefined;
@@ -165,12 +193,32 @@ export function buildPublicFields({
 }): ProfileField[] {
   const fields: ProfileField[] = [];
 
-  if (pubkey) {
+  const website = profile?.website
+    ? normalizeProfileWebsite(profile.website)
+    : null;
+  if (website) {
     fields.push({
-      displayValue: truncatePubkey(pubkey),
-      displayNode: <PubKey pubkey={pubkey} testId="user-profile-copy-pubkey" />,
-      icon: Fingerprint,
-      label: "Public key",
+      displayValue: profileWebsiteDisplayValue(website),
+      icon: Globe2,
+      label: "Website",
+      onClick: () => {
+        void import("@tauri-apps/plugin-opener").then(({ openUrl }) =>
+          openUrl(website),
+        );
+      },
+      testId: "user-profile-website",
+    });
+  }
+
+  if (!isBot && channelRole) {
+    const normalizedChannelName = channelName?.replace(/^#/, "").trim();
+    fields.push({
+      displayValue: normalizedChannelName
+        ? `${formatChannelRole(channelRole)} in #${normalizedChannelName}`
+        : formatChannelRole(channelRole),
+      icon: ShieldCheck,
+      label: "Channel role",
+      testId: "user-profile-channel-role",
     });
   }
 
@@ -213,6 +261,15 @@ export function buildPublicFields({
     });
   }
 
+  if (pubkey) {
+    fields.push({
+      displayValue: truncatePubkey(pubkey),
+      displayNode: <PubKey pubkey={pubkey} testId="user-profile-copy-pubkey" />,
+      icon: Fingerprint,
+      label: "Public key",
+    });
+  }
+
   return fields;
 }
 
@@ -246,9 +303,13 @@ export function buildOwnerFields({
   const fields: ProfileField[] = [];
   const respondTo = managedAgent?.respondTo ?? relayAgent?.respondTo ?? null;
   const respondToDisplayValue = respondTo
-    ? respondTo === "owner-only" && ownerDisplayName
+    ? respondTo === "owner-only"
       ? ownerDisplayName
-      : respondTo.replace(/-/g, " ")
+        ? `Only ${ownerDisplayName} (owner)`
+        : "Only the owner"
+      : respondTo === "allowlist"
+        ? "Selected people"
+        : "Anyone"
     : null;
 
   const ownerClickable = Boolean(onOpenProfile && ownerProfilePubkey);
@@ -386,7 +447,7 @@ export function buildOwnerFields({
     fields.push({
       displayValue: respondToDisplayValue,
       icon: Ear,
-      label: "Respond to",
+      label: "Who can send instructions",
       testId: "user-profile-respond-to",
     });
   }
@@ -411,13 +472,13 @@ function orderProfileFields(fields: ProfileField[]) {
   const statusLabel = "Status";
   return [
     ...fields.filter((field) => field.label === visibilityLabel),
-    ...fields.filter((field) => field.label === publicKeyLabel),
     ...fields.filter((field) => field.label === managedByLabel),
     ...fields.filter(
       (field) =>
         field.label !== visibilityLabel &&
         field.label !== publicKeyLabel &&
         field.label !== managedByLabel &&
+        field.label !== statusLabel &&
         field.copyValue,
     ),
     ...fields.filter((field) => field.label === statusLabel),
@@ -432,6 +493,7 @@ function orderProfileFields(fields: ProfileField[]) {
       }
       return !field.copyValue;
     }),
+    ...fields.filter((field) => field.label === publicKeyLabel),
   ];
 }
 

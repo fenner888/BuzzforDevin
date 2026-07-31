@@ -32,7 +32,7 @@ async function openCreateDialog(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.getByTestId("open-agents-view").click();
   await page.getByTestId("new-agent-card").click();
-  await page.getByRole("menuitem", { name: "Create from scratch" }).click();
+  await page.getByRole("menuitem", { name: "Create agent" }).click();
   await page.locator("#persona-display-name").fill("Test Agent");
 }
 
@@ -701,7 +701,7 @@ test.describe("global agent config screenshots", () => {
         .locator("p")
         .filter({ hasText: "Buzz Agent is not installed." }),
     ).toContainText(
-      "Buzz Agent is not installed. Visit Settings > Agents to set it up.",
+      "Buzz Agent is not installed. Ships with the Buzz desktop app. Visit Settings > Agents to set it up.",
     );
     await expect(page.getByTestId("persona-dialog-submit")).toBeDisabled();
   });
@@ -712,7 +712,7 @@ test.describe("global agent config screenshots", () => {
     await page.goto("/");
     await page.getByTestId("open-agents-view").click();
     await page.getByTestId("new-agent-card").click();
-    await page.getByRole("menuitem", { name: "Create from scratch" }).click();
+    await page.getByRole("menuitem", { name: "Create agent" }).click();
 
     await expect(page.getByTestId("persona-dialog-submit")).toBeDisabled({
       timeout: 10_000,
@@ -809,10 +809,9 @@ test.describe("global agent config screenshots", () => {
   // Shot 10: the ORIGINAL defect — Ian's "Save button stays disabled after
   // editing an agent." This drives the real EDIT/Save path (not create): a
   // persona-linked Codex agent with an explicit custom model and no provider is
-  // opened through the definition's Agents-library action, which mounts
+  // opened via the Agents view → profile → Edit affordance, which mounts
   // AgentDefinitionDialog in edit mode (id present in initialValues, "Save
-  // changes" label). The profile Edit affordance intentionally edits the live
-  // instance instead. Before the provider-aware gate, the hidden Codex provider
+  // changes" label). Before the provider-aware gate, the hidden Codex provider
   // left Save permanently disabled on a value the user could never set. Now:
   // provider picker hidden, Save enabled, and no submit-block reason. Create
   // and Save share this rendering path, but the defect was Save-specific, so
@@ -846,15 +845,18 @@ test.describe("global agent config screenshots", () => {
       ],
     });
 
-    // Agents view → persona definition actions → Edit.
+    // Agents view → persona-grouped agent card → Edit quick action.
     await page.goto("/");
     await page.getByTestId("open-agents-view").click();
-    const actionsButton = page.getByRole("button", {
-      name: "Open actions for Codex Editor",
+    const agentButton = page.getByRole("button", {
+      name: "Codex Editor agent profile",
     });
-    await expect(actionsButton).toBeVisible({ timeout: 10_000 });
-    await actionsButton.click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
+    await expect(agentButton).toBeVisible({ timeout: 10_000 });
+    await agentButton.click();
+    await expect(page.getByTestId("user-profile-panel")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByTestId("user-profile-edit-agent").click();
 
     // The definition dialog opens in EDIT mode ("Save changes"), seeded from
     // the persona — confirm it's the edit path, not create.
@@ -934,15 +936,18 @@ test.describe("global agent config screenshots", () => {
       ],
     });
 
-    // Agents view → persona definition actions → Edit.
+    // Agents view → persona-grouped agent card → Edit quick action.
     await page.goto("/");
     await page.getByTestId("open-agents-view").click();
-    const actionsButton = page.getByRole("button", {
-      name: "Open actions for Legacy Editor",
+    const agentButton = page.getByRole("button", {
+      name: "Legacy Editor agent profile",
     });
-    await expect(actionsButton).toBeVisible({ timeout: 10_000 });
-    await actionsButton.click();
-    await page.getByRole("menuitem", { name: "Edit" }).click();
+    await expect(agentButton).toBeVisible({ timeout: 10_000 });
+    await agentButton.click();
+    await expect(page.getByTestId("user-profile-panel")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByTestId("user-profile-edit-agent").click();
 
     // Confirm the real EDIT dialog, seeded from the persona.
     await expect(page.getByTestId("persona-dialog")).toBeVisible({

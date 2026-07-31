@@ -43,11 +43,25 @@ import {
 } from "@/features/profile/lib/selfProfileStorage";
 import { useCommunities } from "@/features/communities/useCommunities";
 import { updateCachedChannelMemberDisplayName } from "@/features/channels/channelMemberProfileCache";
+import { useChannelMembersQuery } from "@/features/channels/hooks";
 
 export const profileQueryKey = ["profile"] as const;
 export const contactListQueryKey = (pubkey: string) =>
   ["contact-list", pubkey] as const;
 export const allPulseTimelinesQueryKey = ["pulse-timeline"] as const;
+
+export function useProfileChannelRole(
+  channelId: string | null,
+  pubkey: string | null,
+  enabled: boolean,
+) {
+  const membersQuery = useChannelMembersQuery(channelId, enabled);
+  return (
+    membersQuery.data?.find(
+      (member) => member.pubkey.toLowerCase() === pubkey?.toLowerCase(),
+    )?.role ?? null
+  );
+}
 
 /**
  * Persists a freshly-fetched profile to localStorage as the offline fallback.
@@ -75,6 +89,7 @@ async function persistSelfProfile(
     displayName: profile.displayName,
     avatarUrl: profile.avatarUrl,
     about: profile.about,
+    website: profile.website,
     avatarDataUrl,
     updatedAt: Date.now(),
     // Only persist the presence bit when true — no-event fallbacks
@@ -109,6 +124,7 @@ export function useProfileQuery(enabled = true) {
             displayName: cached.displayName,
             avatarUrl: cached.avatarUrl,
             about: cached.about,
+            website: cached.website ?? null,
             nip05Handle: null,
             ownerPubkey: null,
             // Only true when the cache entry was explicitly written with a
@@ -384,6 +400,7 @@ export function useUsersBatchQuery(
           existing ?? {
             pubkey,
             about: null,
+            website: null,
             // Batch endpoint gives UserProfileSummary (no event-presence flag).
             // These cached summaries are never used for the onboarding gate.
             hasProfileEvent: false,

@@ -240,7 +240,7 @@ pub struct CliArgs {
     #[arg(long, env = "BUZZ_RELAY_URL", default_value = "ws://localhost:3000")]
     pub relay_url: String,
 
-    #[arg(long, env = "BUZZ_PRIVATE_KEY")]
+    #[arg(long, env = "BUZZ_PRIVATE_KEY", hide_env_values = true)]
     pub private_key: String,
 
     /// Agent owner pubkey (64-char hex). Used for --respond-to=owner-only gate.
@@ -361,21 +361,6 @@ pub struct CliArgs {
     #[arg(long, env = "BUZZ_ACP_NO_IGNORE_SELF")]
     pub no_ignore_self: bool,
 
-    /// Seconds to wait after observing a self-authored channel message before
-    /// closing the exact still-running turn that published it. 0 disables the
-    /// compatibility recovery.
-    ///
-    /// Some ACP adapters can successfully publish their externally visible
-    /// result and then fail to return `session/prompt`. The grace period lets
-    /// the adapter finish naturally first; an exact turn-id match prevents a
-    /// delayed timer from cancelling later work in the same channel.
-    #[arg(
-        long = "self-publish-completion-grace",
-        env = "BUZZ_ACP_SELF_PUBLISH_COMPLETION_GRACE",
-        default_value_t = 0
-    )]
-    pub self_publish_completion_grace_secs: u64,
-
     /// Maximum number of context messages to include for thread replies and DMs.
     /// Set to 0 to disable automatic context fetching. Max 100.
     #[arg(long, env = "BUZZ_ACP_CONTEXT_MESSAGE_LIMIT", default_value_t = 12,
@@ -438,6 +423,12 @@ pub struct CliArgs {
     #[arg(long, env = "BUZZ_ACP_MODEL")]
     pub model: Option<String>,
 
+    /// Title for the agent's ACP sessions, passed out-of-band in `session/new`
+    /// `_meta`. Adapters that recognize it name the session after this value;
+    /// others ignore it. Never enters the prompt.
+    #[arg(long, env = "BUZZ_ACP_SESSION_TITLE")]
+    pub session_title: Option<String>,
+
     /// Permission mode for agents that support `session/set_config_option`
     /// with `configId: "mode"` (e.g. `claude-agent-acp`).
     ///
@@ -451,33 +442,6 @@ pub struct CliArgs {
         value_enum
     )]
     pub permission_mode: PermissionMode,
-
-    /// Whether Buzz may answer ACP permission requests with `allow_once`.
-    ///
-    /// This preserves the historical harness behavior by default. A managed
-    /// runtime may enforce `false` when a headless community turn must never
-    /// substitute for interactive user consent.
-    #[arg(
-        long,
-        env = "BUZZ_ACP_AUTO_APPROVE_PERMISSIONS",
-        default_value_t = true,
-        action = clap::ArgAction::Set
-    )]
-    pub auto_approve_permissions: bool,
-
-    /// Whether owner-signed observer controls may resolve ACP permission
-    /// requests interactively with `allow_once` or `reject_once`.
-    ///
-    /// Disabled by default so existing runtimes preserve their historical
-    /// behavior. Managed runtimes that disable auto-approval may enable this
-    /// owner-consent path without selecting a bypass permission mode.
-    #[arg(
-        long,
-        env = "BUZZ_ACP_INTERACTIVE_PERMISSIONS",
-        default_value_t = false,
-        action = clap::ArgAction::Set
-    )]
-    pub interactive_permissions: bool,
 
     /// Inbound author gate: which authors' events the harness forwards.
     /// Modes: owner-only (default), allowlist, anyone, nobody.
@@ -548,9 +512,6 @@ pub struct Config {
     pub dedup_mode: DedupMode,
     pub multiple_event_handling: MultipleEventHandling,
     pub ignore_self: bool,
-    /// Runtime compatibility recovery after a self-authored result publish.
-    /// 0 disables the recovery and preserves historical behavior.
-    pub self_publish_completion_grace_secs: u64,
     pub kinds_override: Option<Vec<u32>>,
     pub channels_override: Option<Vec<String>>,
     pub no_mention_filter: bool,
@@ -567,12 +528,11 @@ pub struct Config {
     pub memory_enabled: bool,
     /// Desired LLM model ID. Applied after every `session_new_full()`.
     pub model: Option<String>,
+    /// Sanitized session title, sent as `_meta.sessionTitle` on `session/new`.
+    /// `None` when unset or when the configured value sanitized to empty.
+    pub session_title: Option<String>,
     /// Permission mode to apply after session creation. `Default` = skip.
     pub permission_mode: PermissionMode,
-    /// Whether ACP permission requests may select `allow_once`.
-    pub auto_approve_permissions: bool,
-    /// Whether owner-signed observer controls may resolve permission requests.
-    pub interactive_permissions: bool,
     /// Inbound author gate mode.
     pub respond_to: RespondTo,
     /// Validated allowlist of pubkey hex strings (used when respond_to == Allowlist).
@@ -601,6 +561,68 @@ pub struct Config {
     /// `from_cli()`. `None` when using the compiled-in default or when
     /// `--no-base-prompt` is set.
     pub base_prompt_content: Option<String>,
+}
+
+/// Maximum length, in characters, of a session title sent to the adapter.
+const SESSION_TITLE_MAX_CHARS: usize = 80;
+
+/// Normalize a configured session title into something safe to hand an adapter.
+///
+/// Control characters are dropped, runs of whitespace collapse to a single
+/// space, and the result is trimmed and capped at
+/// [`SESSION_TITLE_MAX_CHARS`]. Returns `None` when nothing printable is left.
+///
+/// Buzz is the only guard here: Codex's own `normalize_thread_name` merely
+/// trims, so an unbounded display name would be persisted verbatim into its
+/// thread store.
+fn sanitize_session_title(raw: &str) -> Option<String> {
+    let collapsed = raw
+        .split_whitespace()
+        .map(|word| word.chars().filter(|c| !c.is_control()).collect::<String>())
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    // Truncate by chars, not bytes, so a multi-byte name can't be cut mid-UTF-8.
+    let title: String = collapsed
+        .chars()
+        .take(SESSION_TITLE_MAX_CHARS)
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    if title.is_empty() {
+        None
+    } else {
+        Some(title)
+    }
+}
+
+/// Separator between the agent name and the channel in a composed title.
+/// U+00B7 MIDDLE DOT, spaces on both sides.
+const SESSION_TITLE_SEPARATOR: &str = " · ";
+
+/// Compose a per-session title as `Agent · #channel`.
+///
+/// One agent in five channels gets five sessions; a bare agent name would show
+/// five identical rows in the adapter's thread list. Only the channel part is
+/// truncated to fit [`SESSION_TITLE_MAX_CHARS`], so the agent name always
+/// survives. Returns the bare agent name when there is no channel, the channel
+/// name is blank, or no room is left for it.
+pub(crate) fn compose_session_title(agent: &str, channel_name: Option<&str>) -> String {
+    let Some(channel) = channel_name.and_then(sanitize_session_title) else {
+        return agent.to_string();
+    };
+    // Reserve the separator and the `#` sigil alongside the agent name.
+    let reserved = agent.chars().count() + SESSION_TITLE_SEPARATOR.chars().count() + 1;
+    let channel: String = channel
+        .chars()
+        .take(SESSION_TITLE_MAX_CHARS.saturating_sub(reserved))
+        .collect::<String>()
+        .trim_end()
+        .to_string();
+    if channel.is_empty() {
+        return agent.to_string();
+    }
+    format!("{agent}{SESSION_TITLE_SEPARATOR}#{channel}")
 }
 
 /// Validate and deduplicate allowlist entries: each must be exactly 64 hex chars.
@@ -654,7 +676,12 @@ pub(crate) fn normalize_agent_command_identity(command: &str) -> String {
         .next()
         .expect("rsplit always yields at least one element");
     let lower = basename.to_ascii_lowercase();
-    let stem = lower.strip_suffix(".exe").unwrap_or(&lower);
+    // Windows resolves commands through `.exe` binaries and npm's `.cmd`/`.bat`
+    // shims; all three name the same runtime identity.
+    let stem = [".exe", ".cmd", ".bat"]
+        .iter()
+        .find_map(|extension| lower.strip_suffix(extension))
+        .unwrap_or(&lower);
     stem.chars()
         .map(|character| match character {
             ' ' | '_' => '-',
@@ -665,10 +692,29 @@ pub(crate) fn normalize_agent_command_identity(command: &str) -> String {
 
 fn default_agent_args(command: &str) -> Option<Vec<String>> {
     match normalize_agent_command_identity(command).as_str() {
-        "goose" | "devin" => Some(vec!["acp".to_string()]),
+        "goose" => Some(vec!["acp".to_string()]),
         "codex" | "codex-acp" | "claude-agent-acp" | "claude-code-acp" | "claude-code"
         | "claudecode" | "buzz-agent" => Some(Vec::new()),
         _ => None,
+    }
+}
+
+/// Per-runtime environment defaults applied when Buzz owns the agent process.
+///
+/// Mirrors [`default_agent_args`]: keyed on the normalized command identity,
+/// with the merge (in `AcpClient::spawn`) giving explicit persona env and
+/// inherited parent env precedence over these defaults.
+///
+/// Hermes: ACP hosts supply session MCP servers explicitly through
+/// `session/new`, but Hermes otherwise starts every profile-configured MCP
+/// server before it responds to `initialize` — which can exhaust the host's
+/// startup budget (see block/buzz#3355). Skip that unrelated global startup
+/// by default; an operator or persona can still opt back in by setting the
+/// variable explicitly.
+pub(crate) fn default_agent_env(command: &str) -> &'static [(&'static str, &'static str)] {
+    match normalize_agent_command_identity(command).as_str() {
+        "hermes" | "hermes-agent" | "hermes-acp" => &[("HERMES_ACP_SKIP_CONFIGURED_MCP", "1")],
+        _ => &[],
     }
 }
 
@@ -1031,7 +1077,6 @@ impl Config {
             dedup_mode: args.dedup,
             multiple_event_handling: args.multiple_event_handling,
             ignore_self: !args.no_ignore_self,
-            self_publish_completion_grace_secs: args.self_publish_completion_grace_secs,
             kinds_override: args.kinds,
             channels_override: args.channels,
             no_mention_filter: args.no_mention_filter,
@@ -1042,9 +1087,11 @@ impl Config {
             typing_enabled: !args.no_typing,
             memory_enabled: args.memory && !args.no_memory,
             model,
+            session_title: args
+                .session_title
+                .as_deref()
+                .and_then(sanitize_session_title),
             permission_mode: args.permission_mode,
-            auto_approve_permissions: args.auto_approve_permissions,
-            interactive_permissions: args.interactive_permissions,
             respond_to: args.respond_to,
             respond_to_allowlist,
             allowed_respond_to,
@@ -1076,7 +1123,7 @@ impl Config {
             format!(" allowed_respond_to=[{}]", modes.join(","))
         };
         format!(
-            "relay={} pubkey={} agent_cmd={} {} mcp_cmd={} idle_timeout={}s max_turn={}s agents={} heartbeat={}s subscribe={:?} dedup={:?} meh={:?} ignore_self={} self_publish_completion_grace={}s context_limit={} max_turns_per_session={} presence={} typing={} memory={} model={} permission_mode={} auto_approve_permissions={} interactive_permissions={} {}{}",
+            "relay={} pubkey={} agent_cmd={} {} mcp_cmd={} idle_timeout={}s max_turn={}s agents={} heartbeat={}s subscribe={:?} dedup={:?} meh={:?} ignore_self={} context_limit={} max_turns_per_session={} presence={} typing={} memory={} model={} permission_mode={} {}{}",
             self.relay_url,
             self.keys.public_key().to_hex(),
             self.agent_command,
@@ -1090,7 +1137,6 @@ impl Config {
             self.dedup_mode,
             self.multiple_event_handling,
             self.ignore_self,
-            self.self_publish_completion_grace_secs,
             self.context_message_limit,
             self.max_turns_per_session,
             self.presence_enabled,
@@ -1098,8 +1144,6 @@ impl Config {
             self.memory_enabled,
             self.model.as_deref().unwrap_or("(agent default)"),
             self.permission_mode,
-            self.auto_approve_permissions,
-            self.interactive_permissions,
             respond_to_detail,
             allowed_respond_to_detail,
         )
@@ -1406,7 +1450,6 @@ mod tests {
             dedup_mode: DedupMode::Queue,
             multiple_event_handling: MultipleEventHandling::Queue,
             ignore_self: true,
-            self_publish_completion_grace_secs: 0,
             kinds_override: None,
             channels_override: None,
             no_mention_filter: false,
@@ -1417,9 +1460,8 @@ mod tests {
             typing_enabled: true,
             memory_enabled: true,
             model: None,
+            session_title: None,
             permission_mode: PermissionMode::BypassPermissions,
-            auto_approve_permissions: true,
-            interactive_permissions: false,
             respond_to: RespondTo::Anyone,
             respond_to_allowlist: HashSet::new(),
             allowed_respond_to: Vec::new(),
@@ -1551,22 +1593,6 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_devin_args_to_native_acp_subcommand() {
-        assert_eq!(normalize_agent_args("devin", Vec::new()), vec!["acp"]);
-        assert_eq!(
-            normalize_agent_args("/usr/local/bin/devin", vec!["".into()]),
-            vec!["acp"]
-        );
-        assert_eq!(
-            normalize_agent_args(
-                "devin",
-                vec!["acp".into(), "--agent-type".into(), "review".into()]
-            ),
-            vec!["acp", "--agent-type", "review"]
-        );
-    }
-
-    #[test]
     fn normalize_agent_command_identity_variants() {
         assert_eq!(normalize_agent_command_identity("goose"), "goose");
         assert_eq!(
@@ -1587,6 +1613,15 @@ mod tests {
             "claude-code"
         );
         assert_eq!(normalize_agent_command_identity("Goose.EXE"), "goose");
+        // Windows npm shims resolve to `.cmd`/`.bat` wrappers.
+        assert_eq!(
+            normalize_agent_command_identity(r"C:\Users\test\AppData\Roaming\npm\hermes-acp.cmd"),
+            "hermes-acp"
+        );
+        assert_eq!(
+            normalize_agent_command_identity(r"C:\Tools\Hermes\HERMES-AGENT.BAT"),
+            "hermes-agent"
+        );
         // Non-ASCII must not panic.
         assert_eq!(normalize_agent_command_identity("my-agënt"), "my-agënt");
         // Edge cases: empty, whitespace-only, bare separators.
@@ -1594,6 +1629,30 @@ mod tests {
         assert_eq!(normalize_agent_command_identity("   "), "");
         assert_eq!(normalize_agent_command_identity("/"), "");
         assert_eq!(normalize_agent_command_identity("///"), "");
+    }
+
+    #[test]
+    fn default_agent_env_recognizes_hermes_identities() {
+        for command in [
+            "hermes",
+            "hermes-agent",
+            "hermes-acp",
+            "/opt/hermes/bin/hermes-acp",
+            r"C:\Users\test\bin\HERMES_ACP.EXE",
+            r"C:\Users\test\AppData\Roaming\npm\hermes-acp.cmd",
+        ] {
+            assert_eq!(
+                default_agent_env(command),
+                &[("HERMES_ACP_SKIP_CONFIGURED_MCP", "1")],
+                "unexpected env defaults for {command}"
+            );
+        }
+        for command in ["goose", "codex-acp", "claude-agent-acp", "buzz-agent", ""] {
+            assert!(
+                default_agent_env(command).is_empty(),
+                "non-Hermes command must have no env defaults: {command}"
+            );
+        }
     }
 
     #[test]
@@ -2120,57 +2179,6 @@ channels = "ALL"
         let args = CliArgs::try_parse_from(["buzz-acp", "--private-key", &key, "--lazy-pool=true"]);
         assert!(args.is_err(), "bool flags do not take an explicit value");
         assert!(CliArgs::parse_from(["buzz-acp", "--private-key", &key, "--lazy-pool"]).lazy_pool);
-    }
-
-    #[test]
-    fn self_publish_completion_recovery_defaults_off_and_accepts_a_grace() {
-        let key = "0".repeat(64);
-        assert_eq!(
-            CliArgs::parse_from(["buzz-acp", "--private-key", &key])
-                .self_publish_completion_grace_secs,
-            0
-        );
-        assert_eq!(
-            CliArgs::parse_from([
-                "buzz-acp",
-                "--private-key",
-                &key,
-                "--self-publish-completion-grace",
-                "30",
-            ])
-            .self_publish_completion_grace_secs,
-            30
-        );
-    }
-
-    #[test]
-    fn permission_request_auto_approval_defaults_on_and_can_be_disabled() {
-        let key = "0".repeat(64);
-        assert!(CliArgs::parse_from(["buzz-acp", "--private-key", &key]).auto_approve_permissions);
-        assert!(
-            !CliArgs::parse_from([
-                "buzz-acp",
-                "--private-key",
-                &key,
-                "--auto-approve-permissions=false",
-            ])
-            .auto_approve_permissions
-        );
-    }
-
-    #[test]
-    fn interactive_permissions_default_off_and_can_be_enabled() {
-        let key = "0".repeat(64);
-        assert!(!CliArgs::parse_from(["buzz-acp", "--private-key", &key]).interactive_permissions);
-        assert!(
-            CliArgs::parse_from([
-                "buzz-acp",
-                "--private-key",
-                &key,
-                "--interactive-permissions=true",
-            ])
-            .interactive_permissions
-        );
     }
 
     #[test]
@@ -2830,5 +2838,94 @@ channels = "ALL"
         const {
             assert!(MAX_TURN_DURATION_CEILING_SECS < u64::MAX - 100);
         }
+    }
+
+    #[test]
+    fn sanitize_session_title_collapses_whitespace_and_strips_control_chars() {
+        assert_eq!(
+            sanitize_session_title("  Fizz\t\tthe\n Bot\u{7}  "),
+            Some("Fizz the Bot".to_string())
+        );
+    }
+
+    #[test]
+    fn sanitize_session_title_returns_none_when_nothing_printable_remains() {
+        assert_eq!(sanitize_session_title("   \n\t "), None);
+        assert_eq!(sanitize_session_title(""), None);
+        assert_eq!(sanitize_session_title("\u{1}\u{2}"), None);
+    }
+
+    #[test]
+    fn sanitize_session_title_caps_length_without_splitting_multibyte_chars() {
+        let raw = "\u{1f41d}".repeat(SESSION_TITLE_MAX_CHARS + 10);
+        let title = sanitize_session_title(&raw).expect("emoji title survives sanitizing");
+        assert_eq!(title.chars().count(), SESSION_TITLE_MAX_CHARS);
+        assert!(title.chars().all(|c| c == '\u{1f41d}'));
+    }
+
+    #[test]
+    fn sanitize_session_title_does_not_leave_a_trailing_space_after_the_cap() {
+        // The cap lands mid-word, so trimming must not leave a dangling space.
+        let raw = format!("{} tail", "a".repeat(SESSION_TITLE_MAX_CHARS - 1));
+        let title = sanitize_session_title(&raw).expect("title survives sanitizing");
+        assert_eq!(title, "a".repeat(SESSION_TITLE_MAX_CHARS - 1));
+    }
+
+    #[test]
+    fn compose_session_title_qualifies_the_agent_name_with_the_channel() {
+        assert_eq!(
+            compose_session_title("Fizz", Some("buzz-dev")),
+            "Fizz · #buzz-dev"
+        );
+    }
+
+    #[test]
+    fn compose_session_title_falls_back_to_bare_agent_name_without_a_channel() {
+        assert_eq!(compose_session_title("Fizz", None), "Fizz");
+        assert_eq!(compose_session_title("Fizz", Some("   ")), "Fizz");
+    }
+
+    #[test]
+    fn compose_session_title_truncates_the_channel_and_keeps_the_agent_name() {
+        let channel = "c".repeat(200);
+        let title = compose_session_title("Fizz", Some(&channel));
+        assert_eq!(title.chars().count(), SESSION_TITLE_MAX_CHARS);
+        assert!(title.starts_with("Fizz · #c"));
+    }
+
+    #[test]
+    fn compose_session_title_drops_the_channel_when_the_agent_name_fills_the_cap() {
+        let agent = "a".repeat(SESSION_TITLE_MAX_CHARS);
+        assert_eq!(compose_session_title(&agent, Some("buzz-dev")), agent);
+    }
+
+    /// Every arg whose env var name contains KEY/SECRET/TOKEN/PASSWORD/CRED/AUTH
+    /// must set `hide_env_values = true` to prevent credential leakage in --help.
+    #[test]
+    fn secret_env_args_hide_their_values_in_help() {
+        use clap::CommandFactory;
+
+        const SECRET_PATTERNS: &[&str] = &["KEY", "SECRET", "TOKEN", "PASSWORD", "CRED", "AUTH"];
+
+        let cmd = CliArgs::command();
+        let violations: Vec<String> = cmd
+            .get_arguments()
+            .filter_map(|arg| {
+                let env_key = arg.get_env()?;
+                let env_name = env_key.to_string_lossy().to_uppercase();
+                let is_secret = SECRET_PATTERNS.iter().any(|pat| env_name.contains(pat));
+                if is_secret && !arg.is_hide_env_values_set() {
+                    Some(env_name)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert!(
+            violations.is_empty(),
+            "Found secret-bearing env args without hide_env_values=true. \
+             Add `hide_env_values = true` to each: {violations:?}"
+        );
     }
 }

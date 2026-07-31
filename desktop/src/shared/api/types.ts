@@ -103,37 +103,18 @@ export type AddChannelMembersResult = {
   }>;
 };
 
-export type Identity = {
-  pubkey: string;
-  displayName: string;
-  /** True when the app booted in "identity lost" recovery mode — the OS
-   *  keyring was empty despite a prior successful migration. The frontend
-   *  should route to nsec re-import instead of normal onboarding.
-   *  Mutually exclusive with `locked`. */
-  lost?: boolean;
-  /** True when the app booted with an ephemeral key because the OS keyring
-   *  holding the real identity is UNREACHABLE (e.g. GNOME Keyring / KWallet
-   *  locked). The real key still exists; no in-app recovery is possible —
-   *  the user must unlock the keyring externally and relaunch.
-   *  Mutually exclusive with `lost`. */
-  locked?: boolean;
-  /** True when the boot-time Phase 2 reset attempted a wipe but verification
-   *  failed. Identity resolution was skipped; the sentinel is preserved so
-   *  the next relaunch retries the wipe automatically. */
-  resetFailed?: boolean;
-};
+export type { Identity, IdentityStorage } from "./identityTypes";
 
 export type Profile = {
   pubkey: string;
   displayName: string | null;
   avatarUrl: string | null;
   about: string | null;
+  website: string | null;
   nip05Handle: string | null;
   ownerPubkey: string | null;
-  /** True when a real kind:0 metadata event exists on the relay for this pubkey.
-   * False for the synthesized fallback returned when no event is present.
-   * Used by the onboarding gate to distinguish new users from returning users
-   * whose display name happens to be empty. */
+  /** True for a real kind:0 event; false for a synthesized fallback.
+   * Lets onboarding distinguish new users from empty returning profiles. */
   hasProfileEvent: boolean;
 };
 
@@ -172,6 +153,7 @@ export type UpdateProfileInput = {
   displayName?: string;
   avatarUrl?: string;
   about?: string;
+  website?: string;
   nip05Handle?: string;
 };
 
@@ -268,28 +250,11 @@ export type GetHomeFeedInput = {
   types?: string;
 };
 
-export type SearchMessagesInput = {
-  q: string;
-  limit?: number;
-  channelId?: string;
-};
-
-export type SearchHit = {
-  eventId: string;
-  content: string;
-  kind: number;
-  pubkey: string;
-  channelId: string | null;
-  channelName: string | null;
-  createdAt: number;
-  score: number;
-  threadRootId?: string | null;
-};
-
-export type SearchMessagesResponse = {
-  hits: SearchHit[];
-  found: number;
-};
+export type {
+  SearchHit,
+  SearchMessagesInput,
+  SearchMessagesResponse,
+} from "./searchTypes";
 
 // ── Relay Members ────────────────────────────────────────────────────────────
 
@@ -343,6 +308,12 @@ export type ManagedAgent = {
   pubkey: string;
   name: string;
   personaId: string | null;
+  /**
+   * The record's harness/runtime id (e.g. "goose", "my-custom-harness").
+   * `null` means the agent inherits its harness from the linked persona.
+   * Used to count agents referencing a harness definition (delete confirm).
+   */
+  runtime: string | null;
   teamId?: string | null;
   relayUrl: string;
   acpCommand: string;
@@ -362,11 +333,8 @@ export type ManagedAgent = {
   parallelism: number;
   systemPrompt: string | null;
   avatarUrl: string | null;
-  runtimeIconUrl: string | null;
-  runtimeAvatarUrl: string | null;
-  runtimeSupersededAvatarUrls: string[];
-  supportsBuzzModelConfig: boolean | null;
   model: string | null;
+  modelSource: "definition" | "global" | "instance_legacy" | null;
   /** LLM inference provider, from the agent's pinned record snapshot. */
   provider: string | null;
   /**
@@ -492,6 +460,7 @@ export type ManagedAgentLog = {
 export type CancelManagedAgentTurnResult = {
   status: "sent" | "no_active_turn";
 };
+
 /**
  * Outcome of a live `switch_model` control frame, surfaced asynchronously via
  * the agent's `control_result` observer frame. Busy path: `sent` (cancel +
@@ -506,7 +475,7 @@ export type SwitchManagedAgentModelStatus =
   | "no_active_turn";
 
 export type ControlResultFrame = {
-  type: "cancel_turn" | "switch_model" | "permission_decision";
+  type: "cancel_turn" | "switch_model";
   status: string;
   modelId?: string;
 };
@@ -536,14 +505,7 @@ export type AuthStatus =
 export type AcpRuntimeCatalogEntry = {
   id: string;
   label: string;
-  displayLabel: string;
-  sortPriority: number;
-  onboardingVisible: boolean;
-  iconUrl: string;
-  iconScale: number;
   avatarUrl: string;
-  supersededAvatarUrls: string[];
-  supportsBuzzModelConfig: boolean;
   availability: AcpAvailabilityStatus;
   command: string | null;
   binaryPath: string | null;
@@ -567,6 +529,21 @@ export type AcpRuntimeCatalogEntry = {
   authStatus: AuthStatus;
   /** Hint for completing authentication; null when not applicable or already logged in. */
   loginHint: string | null;
+  /**
+   * Whether this entry is compiled into the app ("builtin"), a bundled preset
+   * ("preset" — PATH-probed, not editable/deletable), or loaded from a user
+   * JSON file in `custom_harnesses/` ("custom"). Controls editability in the
+   * UI — only "custom" entries can be edited or deleted.
+   */
+  source: "builtin" | "preset" | "custom";
+  /**
+   * Definition-level environment variables for `source: custom` entries.
+   *
+   * Populated by the backend from `HarnessDefinition.env` so the edit form can
+   * read them back without losing existing env vars on save. Always absent/empty
+   * for `builtin` and `preset` entries.
+   */
+  definitionEnv?: Record<string, string>;
 };
 
 /** An AcpRuntimeCatalogEntry that is confirmed available — command and binaryPath are non-null. */
@@ -576,22 +553,10 @@ export type AcpRuntime = AcpRuntimeCatalogEntry & {
   binaryPath: string;
 };
 
-export type InstallStepResult = {
-  step: string;
-  command: string;
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exitCode: number | null;
-  hint?: string;
-};
-
-export type InstallRuntimeResult = {
-  success: boolean;
-  steps: InstallStepResult[];
-  restartedCount: number;
-  failedRestartCount: number;
-};
+export type {
+  InstallRuntimeResult,
+  InstallStepResult,
+} from "./installTypes";
 
 export type AcpAuthMethod = {
   id: string;
@@ -707,7 +672,6 @@ export type NormalizedConfig = {
 export type RuntimeConfigSurface = {
   runtimeId: string | null;
   runtimeLabel: string | null;
-  supportsBuzzModelConfig: boolean | null;
   isPreSpawn: boolean;
   normalized: NormalizedConfig;
   advanced: ConfigField[];
@@ -759,10 +723,17 @@ export type AgentPersona = {
   namePool: string[];
   isBuiltIn: boolean;
   isActive: boolean;
+  /** Whether this persona is discoverable in the active community catalog. */
+  shared: boolean;
   /** Team ID if this persona was imported from a team directory. Team personas are non-editable. */
   sourceTeam?: string | null;
-  /** Environment variables injected for agents created from this persona.
-   * Layered as: desktop parent env < persona envVars < agent envVars. */
+  /**
+   * Set only on a local copy of another owner's shared catalog entry. A copy
+   * carries a fresh local `id`, so this coordinate is the only thing that can
+   * answer "is this catalog entry already added" without minting a duplicate.
+   */
+  catalogSource?: CatalogSourceCoordinate | null;
+  /** Agent environment variables, layered after desktop parent and persona values. */
   envVars: Record<string, string>;
   /** NIP-AP behavioral defaults (wire shape). Null/empty = unset. */
   respondTo: RespondToMode | null;
@@ -773,9 +744,18 @@ export type AgentPersona = {
 };
 
 /**
- * NIP-AP behavioral group for a definition, sent as one group: absent = don't
- * touch the stored behavior group (legacy callers), present = replace the fields as a
- * unit. Mirrors `PersonaBehaviorRequest`.
+ * A catalog publication's coordinate: the owner who published it and the
+ * `d`-tag identifying the persona within that owner's catalog. Mirrors the
+ * backend `CatalogSource`.
+ */
+export type CatalogSourceCoordinate = {
+  ownerPubkey: string;
+  personaId: string;
+};
+
+/**
+ * NIP-AP behavioral group for a definition: absent preserves the stored group
+ * for legacy callers; present replaces it as a unit. Mirrors `PersonaBehaviorRequest`.
  */
 export type PersonaBehaviorInput = {
   respondTo?: RespondToMode;
@@ -793,6 +773,11 @@ export type CreatePersonaInput = {
   namePool?: string[];
   envVars?: Record<string, string>;
   behavior?: PersonaBehaviorInput;
+  /**
+   * Set when this persona is a copy of another owner's shared catalog entry,
+   * so the catalog can tell an already-added foreign entry from a new one.
+   */
+  catalogSource?: CatalogSourceCoordinate;
 };
 
 export type UpdatePersonaInput = {

@@ -176,6 +176,11 @@ fn run_boot_migrations_inner(app: &tauri::AppHandle, reset_completed: bool) {
     // Post-fold readers of the runtime map (`load_persona_runtimes`) fall
     // back to the unified store's definitions.
     fold_personas_into_agent_store(app);
+    // Clean the legacy baked team-instructions suffix out of stored prompts
+    // AFTER the fold (so definitions lifted out of personas.json are cleaned in
+    // the same boot) and BEFORE backfill_standalone_agents (so a manufactured
+    // definition never snapshots a suffix this strips).
+    strip_baked_team_instructions(app);
     refresh_builtin_agent_avatars(app);
     // B5: manufacture definitions for standalone agents AFTER the fold (so
     // pre-existing definition slugs are present for collision checks) and
@@ -248,23 +253,20 @@ const LEGACY_NEST_KNOWLEDGE: &[&str] = &[
 /// Migrate the legacy agent nest (`~/.sprout`) into the current nest.
 ///
 /// PR #960 renamed the nest directory but shipped no migration, stranding the
-/// agent's accumulated knowledge in `~/.sprout` while `~/.buzz` booted empty —
-/// so agents searched `$HOME` for files they "remembered", triggering macOS TCC
-/// prompts. This copies only the knowledge directories (see
+/// agent's accumulated knowledge in `~/.sprout` while `~/.buzz` booted empty.
+/// This copies only the knowledge directories (see
 /// [`LEGACY_NEST_KNOWLEDGE`]), never `REPOS/`.
 ///
-/// Non-fatal and idempotent, mirroring [`migrate_legacy_app_data_dir`]: a copy
-/// error is logged and never aborts startup. There is no completion sentinel —
-/// the migration re-runs on every launch while `~/.sprout` exists, which is
-/// cheap because the copy is tiny and `copy_dir_all` skips files that already
-/// exist in the destination. This relies on `REPOS/` being out of scope; if it
+/// Non-fatal and idempotent; errors never abort startup. There is no sentinel —
+/// the migration re-runs while `~/.sprout` exists; the copy is tiny and skips
+/// existing destination files. This relies on `REPOS/` being out of scope; if it
 /// is ever added back, a sentinel or off-thread copy becomes mandatory.
 ///
 /// Returns `true` when a legacy `~/.sprout` nest was present (migration ran),
 /// so the caller can emit a one-time hint inviting the user to delete it. The
 /// frontend dedupes the hint, so re-firing while `~/.sprout` lingers is benign.
 pub fn migrate_legacy_nest() -> bool {
-    if !should_import_legacy_nest(crate::managed_agents::uses_upstream_nest_namespace()) {
+    if !crate::managed_agents::uses_upstream_nest_namespace() {
         return false;
     }
     let Some(home) = dirs::home_dir() else {
@@ -277,10 +279,6 @@ pub fn migrate_legacy_nest() -> bool {
         return false;
     };
     migrate_legacy_nest_at(&home.join(".sprout"), &current_nest)
-}
-
-fn should_import_legacy_nest(uses_upstream_namespace: bool) -> bool {
-    uses_upstream_namespace
 }
 
 /// Copy the [`LEGACY_NEST_KNOWLEDGE`] entries from `legacy` to `current`.
@@ -1369,7 +1367,6 @@ pub fn migrate_persona_provider_to_runtime(app: &tauri::AppHandle) {
     }
     rename_provider_to_runtime_in_personas(&path);
 }
-
 mod materialize;
 pub use materialize::materialize_agent_runtimes;
 mod fold;
@@ -1379,6 +1376,8 @@ mod backfill;
 pub use backfill::backfill_standalone_agents;
 mod detach;
 pub use detach::detach_directory_backed_teams;
+mod team_suffix;
+pub use team_suffix::strip_baked_team_instructions;
 
 #[cfg(test)]
 #[path = "migration_test_support.rs"]

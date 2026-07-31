@@ -108,12 +108,16 @@ new app. It does not delete application data or Keychain entries.
 
 ## Update to another release tag
 
-The updater never follows a moving branch. Pass the exact immutable release
-tag to install:
+The updater never follows a moving branch. The current reviewed source release
+uses this exact immutable tag:
 
 ```sh
-./scripts/update-macos-source.sh buzz-for-devin-vX.Y.Z
+./scripts/update-macos-source.sh buzz-for-devin-v0.4.25-alpha.8
 ```
+
+For a later release, copy its exact `buzz-for-devin-v...` tag from the
+[Releases page](https://github.com/fenner888/BuzzforDevin/releases) and pass it
+as the updater's argument.
 
 It fetches public release tags without changing global Git configuration,
 checks out the requested tag, rebuilds, and uses the same backup-preserving

@@ -163,6 +163,7 @@ export function buildPersonaDraftProfile(persona: AgentPersona): Profile {
     displayName: persona.displayName,
     avatarUrl: persona.avatarUrl,
     about: null,
+    website: null,
     nip05Handle: null,
     ownerPubkey: null,
     // Draft profile synthesised from persona config — not backed by a kind:0 event.

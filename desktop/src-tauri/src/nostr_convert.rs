@@ -22,9 +22,6 @@ pub use user_search::{
 
 // ── Tag helpers ─────────────────────────────────────────────────────────────
 
-mod managed_agents;
-pub use managed_agents::managed_agents_from_events;
-
 /// Find the first tag whose name matches `name` and return its first value.
 ///
 /// e.g. for tag `["name", "general"]` with `name="name"` returns `Some("general")`.
@@ -281,12 +278,7 @@ pub fn channel_members_from_event(event: &Event) -> Result<ChannelMembersRespons
     })
 }
 
-// ── kind:0 (profile metadata) ───────────────────────────────────────────────
-
-/// Convert a kind:0 metadata event to [`ProfileInfo`].
-///
-/// The event's `content` is a JSON object per NIP-01:
-/// `{"name":"...","display_name":"...","picture":"...","about":"...","nip05":"..."}`.
+/// Convert kind:0 NIP-01 profile metadata, including `website`, to [`ProfileInfo`].
 pub fn profile_info_from_event(event: &Event) -> Result<ProfileInfo, String> {
     let v: Value = serde_json::from_str(&event.content)
         .map_err(|e| format!("kind:0 content is not valid JSON: {e}"))?;
@@ -298,6 +290,7 @@ pub fn profile_info_from_event(event: &Event) -> Result<ProfileInfo, String> {
         .map(str::to_string);
     let avatar_url = v.get("picture").and_then(Value::as_str).map(str::to_string);
     let about = v.get("about").and_then(Value::as_str).map(str::to_string);
+    let website = v.get("website").and_then(Value::as_str).map(str::to_string);
     let nip05_handle = v.get("nip05").and_then(Value::as_str).map(str::to_string);
 
     Ok(ProfileInfo {
@@ -305,6 +298,7 @@ pub fn profile_info_from_event(event: &Event) -> Result<ProfileInfo, String> {
         display_name,
         avatar_url,
         about,
+        website,
         nip05_handle,
         owner_pubkey: profile_valid_oa_owner_pubkey(event),
         has_profile_event: true,
@@ -765,13 +759,14 @@ mod tests {
     fn profile_info_parses_content() {
         let e = ev(
             0,
-            r#"{"name":"alice","display_name":"Alice","picture":"http://x/a.png","about":"hi","nip05":"alice@x"}"#,
+            r#"{"name":"alice","display_name":"Alice","picture":"http://x/a.png","about":"hi","website":"https://alice.example","nip05":"alice@x"}"#,
             vec![],
         );
         let p = profile_info_from_event(&e).unwrap();
         assert_eq!(p.display_name.as_deref(), Some("Alice"));
         assert_eq!(p.avatar_url.as_deref(), Some("http://x/a.png"));
         assert_eq!(p.about.as_deref(), Some("hi"));
+        assert_eq!(p.website.as_deref(), Some("https://alice.example"));
         assert_eq!(p.nip05_handle.as_deref(), Some("alice@x"));
         assert_eq!(p.pubkey, e.pubkey.to_hex());
         assert!(p.owner_pubkey.is_none());

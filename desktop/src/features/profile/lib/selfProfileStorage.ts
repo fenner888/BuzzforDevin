@@ -37,6 +37,7 @@ export type SelfProfileCache = {
   /** Original relay URL from the kind-0 profile event. */
   avatarUrl: string | null;
   about: string | null;
+  website?: string | null;
   /**
    * Base64 data URL captured while the relay was reachable. Capped at 256 KB
    * to keep localStorage usage bounded. Null if never captured or too large.
@@ -60,6 +61,7 @@ const DEFAULT_CACHE: SelfProfileCache = Object.freeze({
   displayName: null,
   avatarUrl: null,
   about: null,
+  website: null,
   avatarDataUrl: null,
   updatedAt: 0,
 });
@@ -88,6 +90,7 @@ export function parseSelfProfileCache(json: unknown): SelfProfileCache | null {
     typeof obj.displayName === "string" ? obj.displayName : null;
   const avatarUrl = typeof obj.avatarUrl === "string" ? obj.avatarUrl : null;
   const about = typeof obj.about === "string" ? obj.about : null;
+  const website = typeof obj.website === "string" ? obj.website : null;
   // Defense-in-depth: avatarDataUrl flows into an <img src> sink; only accept
   // values that are provably safe image data URLs.
   const avatarDataUrl =
@@ -109,6 +112,7 @@ export function parseSelfProfileCache(json: unknown): SelfProfileCache | null {
     displayName,
     avatarUrl,
     about,
+    website,
     avatarDataUrl,
     updatedAt,
     ...(hasProfileEvent !== undefined && { hasProfileEvent }),

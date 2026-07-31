@@ -3,12 +3,12 @@ use super::*;
 #[test]
 fn nest_dir_is_under_home() {
     if let Some(dir) = nest_dir() {
-        // Accepts the configured release nest or .buzz-dev depending on
+        // Accepts both .buzz (prod) and .buzz-dev (dev) depending on
         // whether init_nest_dir was called before this test ran.
         let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
         assert!(
-            name == configured_release_nest_dir() || name == NEST_DIR_DEV,
-            "nest_dir must end with the release or dev nest name, got {dir:?}"
+            name == NEST_DIR_PROD || name == NEST_DIR_DEV,
+            "nest_dir must end with .buzz or .buzz-dev, got {dir:?}"
         );
     }
 }
@@ -23,29 +23,22 @@ fn init_nest_dir_prod_sets_buzz() {
     if let Some(d) = dir {
         let name = d.file_name().and_then(|n| n.to_str()).unwrap_or("");
         assert!(
-            name == configured_release_nest_dir() || name == NEST_DIR_DEV,
-            "nest_dir suffix must be the release or dev nest name, got {d:?}"
+            name == NEST_DIR_PROD || name == NEST_DIR_DEV,
+            "nest_dir suffix must be .buzz or .buzz-dev, got {d:?}"
         );
     }
 }
 
 #[test]
-fn release_nest_namespace_defaults_to_upstream_and_accepts_build_override() {
-    assert_eq!(release_nest_dir(None), ".buzz");
-    assert_eq!(release_nest_dir(Some(".buzz-for-devin")), ".buzz-for-devin");
-    assert_eq!(
-        uses_upstream_nest_namespace(),
-        configured_release_nest_dir() == ".buzz"
-    );
-}
-
-#[test]
-fn release_cli_link_defaults_to_upstream_and_accepts_build_override() {
-    assert_eq!(release_cli_link_name(None), "buzz");
-    assert_eq!(
-        release_cli_link_name(Some("buzz-for-devin")),
-        "buzz-for-devin"
-    );
+fn nest_skill_contains_safe_mention_workflow() {
+    assert!(BUZZ_CLI_SKILL_MD.contains("--mention <hex-or-npub>"));
+    assert!(BUZZ_CLI_SKILL_MD.contains("every presentation-only name that should notify"));
+    assert!(BUZZ_CLI_SKILL_MD
+        .contains("permits unresolved or ambiguous `@Name` text as presentation-only"));
+    assert!(BUZZ_CLI_SKILL_MD.contains("signed event's `mention_pubkeys`"));
+    assert!(BUZZ_CLI_SKILL_MD.contains("no follow-up verification command is needed"));
+    assert!(BUZZ_CLI_SKILL_MD.contains("Add membership separately only when authorized"));
+    assert!(BUZZ_CLI_SKILL_MD.contains("never changes membership automatically"));
 }
 
 #[test]
@@ -349,11 +342,8 @@ fn ensure_skill_symlinks_skip_dangling_symlink() {
 }
 
 #[test]
-fn cli_link_name_prod_uses_configured_release_name() {
-    assert_eq!(
-        cli_link_name(false),
-        release_cli_link_name(option_env!("BUZZ_DESKTOP_BUILD_CLI_LINK_NAME"))
-    );
+fn cli_link_name_prod_is_buzz() {
+    assert_eq!(cli_link_name(false), "buzz");
 }
 
 #[test]
@@ -444,8 +434,10 @@ fn make_persona(id: &str, display_name: &str) -> AgentDefinition {
         name_pool: vec![],
         is_builtin: false,
         is_active: true,
+        shared: false,
         source_team: None,
         source_team_persona_slug: None,
+        catalog_source: None,
         env_vars: std::collections::BTreeMap::new(),
         respond_to: None,
         respond_to_allowlist: Vec::new(),
@@ -502,8 +494,10 @@ fn make_agent(name: &str, persona_id: Option<&str>) -> ManagedAgentRecord {
         name_pool: Vec::new(),
         is_builtin: false,
         is_active: true,
+        shared: false,
         source_team: None,
         source_team_persona_slug: None,
+        catalog_source: None,
         definition_respond_to: None,
         definition_respond_to_allowlist: Vec::new(),
         definition_parallelism: None,

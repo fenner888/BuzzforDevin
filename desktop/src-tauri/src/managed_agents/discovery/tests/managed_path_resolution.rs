@@ -1,36 +1,28 @@
 use crate::managed_agents::discovery::{clear_resolve_cache, resolve_command};
-use std::path::{Path, PathBuf};
 
+/// The legacy Goose Windows installer wrote `%USERPROFILE%\goose\goose.exe`,
+/// a directory on no standard PATH. `resolve_command_uncached` finds binaries
+/// outside PATH only by scanning `common_binary_paths()`, so that directory
+/// must appear there or those installs stay undiscovered (#2239 residual).
+///
+/// Asserts the probe list rather than a planted binary: `common_binary_paths`
+/// is a process-lifetime `OnceLock`, so a test cannot re-seed `USERPROFILE`
+/// deterministically, and planting an executable under the real user profile
+/// is not an acceptable test side effect.
+#[cfg(windows)]
 #[test]
-fn packaged_release_prefers_its_bundled_sidecars_over_checkout_targets() {
-    let bundle = PathBuf::from("/Applications/Buzz.app/Contents/MacOS");
-    let dirs = super::super::command_search_dirs_for(
-        Path::new("/build/buzz"),
-        Some(Path::new("/Users/developer/buzz")),
-        Some(&bundle),
-        false,
-    );
+fn common_binary_paths_probes_legacy_goose_install_dir() {
+    use std::path::PathBuf;
 
-    assert_eq!(dirs.first(), Some(&bundle));
-    assert_eq!(dirs[1], PathBuf::from("/build/buzz/target/release"));
-    assert_eq!(dirs[2], PathBuf::from("/build/buzz/target/debug"));
-}
+    let profile = std::env::var_os("USERPROFILE").expect("USERPROFILE is always set on Windows");
+    let legacy_dir = PathBuf::from(profile).join("goose");
 
-#[test]
-fn debug_build_keeps_fresh_workspace_sidecars_ahead_of_executable_dir() {
-    let bundle = PathBuf::from("/build/buzz/target/debug");
-    let dirs = super::super::command_search_dirs_for(
-        Path::new("/build/buzz"),
-        Some(Path::new("/build/buzz/desktop")),
-        Some(&bundle),
-        true,
-    );
+    let probed = super::super::common_binary_paths();
 
-    assert_eq!(dirs.first(), Some(&bundle));
-    assert_eq!(dirs[1], PathBuf::from("/build/buzz/target/release"));
-    assert_eq!(
-        dirs.last(),
-        Some(&PathBuf::from("/build/buzz/desktop/target/release"))
+    assert!(
+        probed.contains(&legacy_dir),
+        "legacy Goose install dir {} must be probed, got: {probed:?}",
+        legacy_dir.display()
     );
 }
 

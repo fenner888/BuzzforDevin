@@ -51,6 +51,7 @@ import { usePresenceQuery } from "@/features/presence/hooks";
 import {
   useContactListQuery,
   useFollowMutation,
+  useProfileChannelRole,
   useProfileQuery,
   useUnfollowMutation,
   useUserProfileQuery,
@@ -295,6 +296,11 @@ export function UserProfilePanel({
   );
   const isBot =
     Boolean(relayAgent || managedAgent || resolvedPersona) || isAgentByOaOwner;
+  const callerChannelRole = useProfileChannelRole(
+    callerChannelId,
+    effectivePubkey,
+    Boolean(callerChannelId && effectivePubkey && !isBot),
+  );
   const managedAgentOwner = useIsManagedAgent(isBot ? effectivePubkey : null);
   // Does THIS desktop hold the agent's seckey (or is this an editable persona)?
   // Gates edit (which needs the key) and grants owner access when managed locally.
@@ -383,6 +389,9 @@ export function UserProfilePanel({
     return map;
   }, [channelsQuery.data]);
 
+  const callerChannelName =
+    channelsQuery.data?.find((channel) => channel.id === callerChannelId)
+      ?.name ?? null;
   const targetKey =
     effectivePubkey ?? `persona:${resolvedPersona?.id ?? "unknown"}`;
   const prevTargetKeyRef = React.useRef(targetKey);
@@ -399,8 +408,6 @@ export function UserProfilePanel({
   });
 
   const handleEditAgent = React.useCallback(() => {
-    // See resolveProfileEditTarget: an instance-backed profile must edit the
-    // instance, whose respond-to pair is the one enforced at spawn.
     const target = resolveProfileEditTarget({
       hasManagedInstance: managedAgent !== undefined,
       hasDefinition: resolvedPersona !== undefined,
@@ -744,6 +751,8 @@ export function UserProfilePanel({
   );
   const { agentInfoFields, agentSettingsFields, diagnosticsFields } =
     useProfileFieldBuckets({
+      channelRole: isBot ? null : callerChannelRole,
+      channelName: isBot ? null : callerChannelName,
       isBot,
       isOwner: viewerIsOwner,
       managedAgent,

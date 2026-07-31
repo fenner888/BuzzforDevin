@@ -22,10 +22,10 @@ use crate::managed_agents::discovery::known_skill_dirs;
 use crate::util::create_symlink;
 
 mod release_identity;
+#[cfg(test)]
+use release_identity::NEST_DIR_PROD;
 pub use release_identity::{cli_link_name, uses_upstream_nest_namespace};
 use release_identity::{configured_release_nest_dir, NEST_DIR_DEV};
-#[cfg(test)]
-use release_identity::{release_cli_link_name, release_nest_dir};
 
 /// Subdirectories created inside the nest.
 /// `REPOS` is intentionally absent: it is provisioned by
@@ -56,7 +56,7 @@ const NEST_AGENTS_VERSION: u32 = 4;
 
 /// Template content version for SKILL.md.
 /// Bump this when changing `nest_skill.md` to trigger refresh on existing installs.
-const NEST_SKILL_VERSION: u32 = 4;
+const NEST_SKILL_VERSION: u32 = 5;
 
 const BEGIN_MARKER: &str = "<!-- BEGIN BUZZ MANAGED";
 const END_MARKER: &str = "<!-- END BUZZ MANAGED -->";

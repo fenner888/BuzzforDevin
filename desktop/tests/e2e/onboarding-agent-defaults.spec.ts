@@ -3,7 +3,7 @@ import { installMockBridge } from "../helpers/bridge";
 import { passThroughBackupStep } from "../helpers/onboarding";
 
 function runtime(
-  id: "buzz-agent" | "claude" | "codex" | "devin" | "goose",
+  id: "buzz-agent" | "claude" | "codex" | "goose",
   availability: string,
   authStatus: Record<string, unknown>,
   overrides: Record<string, unknown> = {},
@@ -17,24 +17,16 @@ function runtime(
           ? "Claude Code"
           : id === "codex"
             ? "Codex"
-            : id === "devin"
-              ? "Devin"
-              : "Goose",
-    display_label: id === "buzz-agent" ? "Buzz" : undefined,
+            : "Goose",
     avatar_url: "",
-    sort_priority: 100,
-    onboarding_visible: true,
-    icon_url: "",
-    icon_scale: 1,
     availability,
     command: availability === "available" ? id : null,
     binary_path: availability === "available" ? `/usr/local/bin/${id}` : null,
-    default_args: id === "devin" || id === "goose" ? ["acp"] : [],
+    default_args: [],
     mcp_command: null,
     install_hint: `Install ${id}`,
     install_instructions_url: "https://example.com",
     can_auto_install: true,
-    requires_external_cli: id !== "buzz-agent",
     underlying_cli_path: null,
     node_required: false,
     auth_status: authStatus,
@@ -65,58 +57,15 @@ async function readSavedRuntime(page: Parameters<typeof installMockBridge>[0]) {
   });
 }
 
-async function chooseDefaultHarness(
-  page: Parameters<typeof installMockBridge>[0],
-  runtimeId: string,
-) {
-  const harness = page.getByTestId("global-agent-default-harness");
-  await harness.click();
-  await page
-    .getByTestId(`global-agent-default-harness-option-${runtimeId}`)
-    .click();
-}
-
-test("setup projects catalog visibility and ordering, including Devin", async ({
-  page,
-}) => {
+test("setup shows all bundled harnesses as detected", async ({ page }) => {
   await installMockBridge(
     page,
     {
       acpRuntimesCatalog: [
-        runtime(
-          "buzz-agent",
-          "available",
-          { status: "not_applicable" },
-          { onboarding_visible: false, sort_priority: 0 },
-        ),
-        runtime(
-          "goose",
-          "available",
-          { status: "not_applicable" },
-          { onboarding_visible: false, sort_priority: 10 },
-        ),
-        runtime(
-          "codex",
-          "available",
-          { status: "logged_in" },
-          { sort_priority: 40 },
-        ),
-        runtime(
-          "devin",
-          "available",
-          { status: "logged_in" },
-          {
-            sort_priority: 20,
-            icon_url: "/runtime-icons/devin.svg",
-            icon_scale: 1.1,
-          },
-        ),
-        runtime(
-          "claude",
-          "available",
-          { status: "logged_in" },
-          { sort_priority: 30 },
-        ),
+        runtime("buzz-agent", "available", { status: "not_applicable" }),
+        runtime("goose", "available", { status: "not_applicable" }),
+        runtime("codex", "available", { status: "logged_in" }),
+        runtime("claude", "available", { status: "logged_in" }),
       ],
     },
     { skipCommunitySeed: true, skipOnboardingSeed: true },
@@ -124,83 +73,11 @@ test("setup projects catalog visibility and ordering, including Devin", async ({
   await page.goto("/");
   await navigateToSetupPage(page);
 
-  await expect(page.getByTestId("onboarding-runtime-devin")).toBeVisible();
   await expect(page.getByTestId("onboarding-runtime-claude")).toBeVisible();
   await expect(page.getByTestId("onboarding-runtime-codex")).toBeVisible();
-  await expect(page.getByTestId("onboarding-runtime-goose")).toHaveCount(0);
-  await expect(page.getByTestId("onboarding-runtime-buzz-agent")).toHaveCount(
-    0,
-  );
+  await expect(page.getByTestId("onboarding-runtime-goose")).toBeVisible();
+  await expect(page.getByTestId("onboarding-runtime-buzz-agent")).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
-
-  const visibleRuntimeIds = await page
-    .locator("[data-testid^='onboarding-runtime-']")
-    .evaluateAll((elements) =>
-      elements
-        .map((element) => element.getAttribute("data-testid"))
-        .filter(
-          (testId) =>
-            testId != null &&
-            !testId.includes("-ready-") &&
-            !testId.includes("-checkmark-") &&
-            !testId.includes("-instructions-") &&
-            !testId.includes("-install-"),
-        ),
-    );
-  expect(visibleRuntimeIds).toEqual([
-    "onboarding-runtime-devin",
-    "onboarding-runtime-claude",
-    "onboarding-runtime-codex",
-  ]);
-  const devinIcon = page.getByTestId("onboarding-runtime-devin").locator("img");
-  await expect(devinIcon).toHaveAttribute("src", "/runtime-icons/devin.svg");
-
-  const renderedIcon = await devinIcon.evaluate(async (element) => {
-    const image = element as HTMLImageElement;
-    await image.decode();
-
-    const canvas = document.createElement("canvas");
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) throw new Error("2D canvas context unavailable");
-    context.drawImage(image, 0, 0);
-
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let whitePixels = 0;
-    let darkPixels = 0;
-    let transparentPixels = 0;
-    for (let offset = 0; offset < pixels.length; offset += 4) {
-      const red = pixels[offset];
-      const green = pixels[offset + 1];
-      const blue = pixels[offset + 2];
-      const alpha = pixels[offset + 3];
-      if (alpha === 0) transparentPixels += 1;
-      if (alpha === 255 && red > 250 && green > 250 && blue > 250) {
-        whitePixels += 1;
-      }
-      if (alpha === 255 && red < 32 && green < 32 && blue < 32) {
-        darkPixels += 1;
-      }
-    }
-
-    const pixelCount = canvas.width * canvas.height;
-    return {
-      naturalHeight: image.naturalHeight,
-      naturalWidth: image.naturalWidth,
-      transparentPixels,
-      whiteRatio: whitePixels / pixelCount,
-      darkRatio: darkPixels / pixelCount,
-      corner: Array.from(context.getImageData(0, 0, 1, 1).data),
-    };
-  });
-
-  expect(renderedIcon.naturalWidth).toBe(425);
-  expect(renderedIcon.naturalHeight).toBe(425);
-  expect(renderedIcon.corner).toEqual([255, 255, 255, 255]);
-  expect(renderedIcon.transparentPixels).toBe(0);
-  expect(renderedIcon.whiteRatio).toBeGreaterThan(0.5);
-  expect(renderedIcon.darkRatio).toBeGreaterThan(0.05);
 });
 
 test("setup distinguishes a missing CLI from an installed desktop app", async ({
@@ -215,8 +92,7 @@ test("setup distinguishes a missing CLI from an installed desktop app", async ({
           "not_installed",
           { status: "unknown" },
           {
-            install_hint:
-              "Buzz requires the Codex CLI; the desktop app alone is not enough.",
+            install_hint: "Buzz talks to Codex through the Codex CLI.",
             install_instructions_url:
               "https://developers.openai.com/codex/cli/",
           },
@@ -229,9 +105,7 @@ test("setup distinguishes a missing CLI from an installed desktop app", async ({
   await navigateToSetupPage(page);
 
   const card = page.getByTestId("onboarding-runtime-codex");
-  await expect(card).toContainText(
-    "CLI not detected; the desktop app alone isn’t enough.",
-  );
+  await expect(card).toContainText("CLI not detected.");
   await expect(card.getByTestId("onboarding-runtime-install-codex")).toHaveText(
     "INSTALL",
   );
@@ -545,8 +419,6 @@ test("defaults waits for baked configuration before rendering fields", async ({
   await page.getByTestId("onboarding-setup-next").click();
 
   await expect(page.getByText("Loading…")).toBeVisible();
-  await expect(page.getByText("Loading…")).toHaveCount(0);
-  await chooseDefaultHarness(page, "claude");
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
   );
@@ -573,7 +445,6 @@ test("defaults renders only fields supported by the selected harness", async ({
   await page.goto("/");
   await navigateToSetupPage(page);
   await page.getByTestId("onboarding-setup-next").click();
-  await chooseDefaultHarness(page, "claude");
 
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
@@ -614,7 +485,6 @@ test("defaults hides model when optional harness has empty discovery", async ({
   await page.getByTestId("onboarding-setup-next").click();
 
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
-  await chooseDefaultHarness(page, "claude");
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
   );
@@ -648,7 +518,6 @@ test("defaults keeps model control when optional harness discovery fails", async
   await page.getByTestId("onboarding-setup-next").click();
 
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
-  await chooseDefaultHarness(page, "claude");
   await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
     "Claude Code",
   );
@@ -676,26 +545,16 @@ test("defaults Back returns to harness setup", async ({ page }) => {
   await expect(page.getByTestId("onboarding-page-2")).toBeVisible();
 });
 
-test("defaults offers bundled Buzz Agent and requires an explicit harness choice", async ({
+test("defaults auto-selects the only ready visible harness", async ({
   page,
 }) => {
   await installMockBridge(
     page,
     {
       acpRuntimesCatalog: [
-        runtime(
-          "buzz-agent",
-          "available",
-          { status: "not_applicable" },
-          { onboarding_visible: false },
-        ),
-        runtime(
-          "goose",
-          "available",
-          { status: "not_applicable" },
-          { onboarding_visible: false },
-        ),
-        runtime("devin", "available", { status: "logged_in" }),
+        runtime("buzz-agent", "not_installed", { status: "not_applicable" }),
+        runtime("goose", "not_installed", { status: "not_applicable" }),
+        runtime("claude", "available", { status: "logged_in" }),
         runtime("codex", "available", { status: "logged_out" }),
       ],
       globalAgentConfig: {
@@ -712,67 +571,9 @@ test("defaults offers bundled Buzz Agent and requires an explicit harness choice
   await page.getByTestId("onboarding-setup-next").click();
   await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
 
-  const harness = page.getByTestId("global-agent-default-harness");
-  await expect(harness).toHaveText("Select a harness");
-  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
-  expect(await readSavedRuntime(page)).toBeNull();
-  await expect(
-    page.getByText(
-      "This default harness powers Fizz, Honey, Bumble, and other agents set to Runtime default.",
-    ),
-  ).toBeVisible();
-
-  await harness.click();
-  await expect(
-    page.getByTestId("global-agent-default-harness-option-buzz-agent"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("global-agent-default-harness-option-devin"),
-  ).toBeVisible();
-  await page
-    .getByTestId("global-agent-default-harness-option-buzz-agent")
-    .click();
-  await expect(harness).toHaveText("Buzz");
-  await expect(page.getByTestId("global-agent-provider")).toBeVisible();
-  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
-
-  await harness.click();
-  await page.getByTestId("global-agent-default-harness-option-devin").click();
-  await expect(harness).toHaveText("Devin");
-  await expect(page.getByTestId("onboarding-finish")).toBeEnabled();
-  await expect.poll(() => readSavedRuntime(page)).toBe("devin");
-});
-
-test("defaults requires a choice when one external harness is ready", async ({
-  page,
-}) => {
-  await installMockBridge(
-    page,
-    {
-      acpRuntimesCatalog: [
-        runtime("claude", "available", { status: "logged_in" }),
-      ],
-      globalAgentConfig: {
-        env_vars: {},
-        provider: null,
-        model: null,
-        preferred_runtime: null,
-      },
-    },
-    { skipCommunitySeed: true, skipOnboardingSeed: true },
+  await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
+    "Claude Code",
   );
-  await page.goto("/");
-  await navigateToSetupPage(page);
-  await page.getByTestId("onboarding-setup-next").click();
-
-  const harness = page.getByTestId("global-agent-default-harness");
-  await expect(harness).toHaveText("Select a harness");
-  await expect(page.getByTestId("onboarding-finish")).toBeDisabled();
-  expect(await readSavedRuntime(page)).toBeNull();
-
-  await harness.click();
-  await page.getByTestId("global-agent-default-harness-option-claude").click();
-  await expect(harness).toHaveText("Claude Code");
   await expect(page.getByTestId("onboarding-finish")).toBeEnabled();
   await expect.poll(() => readSavedRuntime(page)).toBe("claude");
 });
@@ -821,18 +622,8 @@ test("defaults requires a choice when multiple visible harnesses are ready", asy
     page,
     {
       acpRuntimesCatalog: [
-        runtime(
-          "buzz-agent",
-          "available",
-          { status: "not_applicable" },
-          { onboarding_visible: false },
-        ),
-        runtime(
-          "goose",
-          "available",
-          { status: "not_applicable" },
-          { onboarding_visible: false },
-        ),
+        runtime("buzz-agent", "available", { status: "not_applicable" }),
+        runtime("goose", "available", { status: "not_applicable" }),
         runtime("claude", "available", { status: "logged_in" }),
         runtime("codex", "available", { status: "logged_in" }),
       ],
@@ -862,7 +653,7 @@ test("defaults requires a choice when multiple visible harnesses are ready", asy
   ).toBeVisible();
   await expect(
     page.getByTestId("global-agent-default-harness-option-goose"),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(
     page.getByTestId("global-agent-default-harness-option-buzz-agent"),
   ).toBeVisible();
@@ -1037,4 +828,90 @@ test("concurrent installs each keep their own state — one fails, one succeeds"
     return el.scrollWidth > el.clientWidth;
   });
   expect(hasHorizontalOverflow).toBe(false);
+});
+
+test("Finish stays disabled until a provider-required harness is fully configured", async ({
+  page,
+}) => {
+  await installMockBridge(
+    page,
+    {
+      acpRuntimesCatalog: [
+        runtime("buzz-agent", "available", { status: "not_applicable" }),
+      ],
+      discoverAgentModels: {
+        models: [{ id: "claude-sonnet-4", name: "Claude Sonnet 4" }],
+        supportsSwitching: true,
+      },
+      globalAgentConfig: {
+        env_vars: {},
+        provider: null,
+        model: null,
+        preferred_runtime: null,
+      },
+    },
+    { skipCommunitySeed: true, skipOnboardingSeed: true },
+  );
+  await page.goto("/");
+  await navigateToSetupPage(page);
+  await page.getByTestId("onboarding-setup-next").click();
+  await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
+
+  // buzz-agent auto-selects as the only ready harness, but with no provider
+  // configured the default is not launchable — Finish must be gated.
+  await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
+    "Buzz",
+  );
+  const finish = page.getByTestId("onboarding-finish");
+  await expect(finish).toBeDisabled();
+
+  // Configure provider + credential; model resolves via discovery/fallback.
+  await page.getByTestId("global-agent-provider").click();
+  await page.getByTestId("global-agent-provider-option-anthropic").click();
+  await page.getByTestId("persona-provider-api-key").fill("sk-test-key");
+
+  await expect(finish).toBeEnabled();
+  await finish.click();
+  await expect(page.getByText("Join or create a community")).toBeVisible();
+  expect(await readSavedRuntime(page)).toBe("buzz-agent");
+});
+
+test("baked build config keeps Finish enabled without manual provider setup", async ({
+  page,
+}) => {
+  await installMockBridge(
+    page,
+    {
+      acpRuntimesCatalog: [
+        runtime("buzz-agent", "available", { status: "not_applicable" }),
+      ],
+      bakedBuildEnv: [
+        { key: "BUZZ_AGENT_PROVIDER", masked: false, value: "databricks_v2" },
+        {
+          key: "DATABRICKS_HOST",
+          masked: false,
+          value: "https://example.cloud.databricks.com",
+        },
+        { key: "DATABRICKS_MODEL", masked: false, value: "baked-model" },
+      ],
+      globalAgentConfig: {
+        env_vars: {},
+        provider: null,
+        model: null,
+        preferred_runtime: null,
+      },
+    },
+    { skipCommunitySeed: true, skipOnboardingSeed: true },
+  );
+  await page.goto("/");
+  await navigateToSetupPage(page);
+  await page.getByTestId("onboarding-setup-next").click();
+  await expect(page.getByTestId("onboarding-page-config")).toBeVisible();
+
+  // Internal builds bake provider/model/credentials — the gate must treat
+  // baked config as complete and never block Finish.
+  await expect(page.getByTestId("global-agent-default-harness")).toHaveText(
+    "Buzz",
+  );
+  await expect(page.getByTestId("onboarding-finish")).toBeEnabled();
 });

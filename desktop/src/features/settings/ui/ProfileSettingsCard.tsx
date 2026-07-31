@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Copy, Eye, EyeOff, Pencil } from "lucide-react";
+import { Check, ChevronDown, Copy, Pencil } from "lucide-react";
 import {
   AnimatePresence,
   LayoutGroup,
@@ -12,8 +12,6 @@ import {
   useProfileQuery,
   useUpdateProfileMutation,
 } from "@/features/profile/hooks";
-import { NsecMaskedDisplay } from "@/features/onboarding/ui/NsecMaskedDisplay";
-import { getNsec } from "@/shared/api/tauriIdentity";
 import { MaskedAvatarBadgeFrame } from "@/features/profile/ui/MaskedAvatarBadgeFrame";
 import { ProfileAvatar } from "@/features/profile/ui/ProfileAvatar";
 import {
@@ -24,9 +22,11 @@ import { cn } from "@/shared/lib/cn";
 import { Input } from "@/shared/ui/input";
 import { Spinner } from "@/shared/ui/spinner";
 import { Textarea } from "@/shared/ui/textarea";
+import { PrivateKeyBackupRow } from "./PrivateKeyBackupRow";
 import { SettingsSectionHeader } from "./SettingsSectionHeader";
 import { SignOutSection } from "./SignOutSection";
 import { writeTextToClipboard } from "@/shared/lib/clipboard";
+import { normalizeProfileWebsite } from "@/features/profile/lib/profileWebsite";
 
 type ProfileSettingsCardProps = {
   currentPubkey?: string;
@@ -90,92 +90,6 @@ function IdentityRow({
   );
 }
 
-/**
- * Collapsible row that reveals the user's nsec on demand.
- * The nsec is fetched only when first expanded and cleared on collapse.
- */
-function NsecRevealRow() {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [nsec, setNsec] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
-  // Guards against a late-resolving getNsec() repopulating state after Hide
-  // or after the settings panel unmounts.
-  const fetchCancelledRef = React.useRef(false);
-
-  React.useEffect(() => {
-    return () => {
-      fetchCancelledRef.current = true;
-      setNsec(null);
-    };
-  }, []);
-
-  async function handleReveal() {
-    if (!isOpen) {
-      fetchCancelledRef.current = false;
-      setIsOpen(true);
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const value = await getNsec();
-        if (!fetchCancelledRef.current) setNsec(value);
-      } catch (err) {
-        if (!fetchCancelledRef.current)
-          setLoadError(
-            err instanceof Error
-              ? err.message
-              : "Failed to retrieve private key.",
-          );
-      } finally {
-        if (!fetchCancelledRef.current) setIsLoading(false);
-      }
-    } else {
-      // Cancel any in-flight fetch before clearing state.
-      fetchCancelledRef.current = true;
-      setNsec(null);
-      setIsOpen(false);
-    }
-  }
-
-  return (
-    <div className="px-4 py-3" data-testid="profile-private-key-row">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm font-medium">Private key</p>
-        <button
-          aria-label={isOpen ? "Hide private key" : "Reveal private key"}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          data-testid="profile-private-key-toggle"
-          onClick={() => void handleReveal()}
-          type="button"
-        >
-          {isOpen ? (
-            <>
-              <EyeOff className="h-4 w-4 shrink-0" />
-              Hide
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4 shrink-0" />
-              Reveal
-            </>
-          )}
-        </button>
-      </div>
-      {isOpen ? (
-        <div className="mt-2">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : loadError ? (
-            <p className="text-sm text-destructive">{loadError}</p>
-          ) : nsec ? (
-            <NsecMaskedDisplay nsec={nsec} />
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function EditProfileMetadataButton({
   label,
   testId,
@@ -226,9 +140,11 @@ export function ProfileSettingsCard({
   const currentDisplayName = profile?.displayName ?? "";
   const currentAvatarUrl = profile?.avatarUrl ?? "";
   const currentAbout = profile?.about ?? "";
+  const currentWebsite = profile?.website ?? "";
   const [displayNameDraft, setDisplayNameDraft] = React.useState("");
   const [avatarUrlDraft, setAvatarUrlDraft] = React.useState("");
   const [aboutDraft, setAboutDraft] = React.useState("");
+  const [websiteDraft, setWebsiteDraft] = React.useState("");
   const [uploadedAvatarUrlDraft, setUploadedAvatarUrlDraft] = React.useState<
     string | null
   >(null);
@@ -278,6 +194,12 @@ export function ProfileSettingsCard({
       setAboutDraft(currentAbout);
     }
   }, [currentAbout]);
+
+  React.useEffect(() => {
+    if (!isEditingProfileMetadataRef.current) {
+      setWebsiteDraft(currentWebsite);
+    }
+  }, [currentWebsite]);
 
   React.useEffect(() => {
     if (
@@ -332,11 +254,19 @@ export function ProfileSettingsCard({
   const nextDisplayName = displayNameDraft.trim();
   const nextAvatarUrl = avatarUrlDraft.trim();
   const nextAbout = aboutDraft.trim();
+  const rawNextWebsite = websiteDraft.trim();
+  const normalizedNextWebsite = normalizeProfileWebsite(rawNextWebsite);
+  const websiteError =
+    rawNextWebsite.length > 0 && normalizedNextWebsite === null
+      ? "Enter a valid website using http or https."
+      : null;
+  const nextWebsite = normalizedNextWebsite ?? "";
   const updatePayload = React.useMemo(() => {
     const payload: {
       displayName?: string;
       avatarUrl?: string;
       about?: string;
+      website?: string;
     } = {};
 
     if (nextDisplayName.length > 0 && nextDisplayName !== currentDisplayName) {
@@ -348,15 +278,21 @@ export function ProfileSettingsCard({
     if (nextAbout !== currentAbout) {
       payload.about = nextAbout;
     }
+    if (!websiteError && nextWebsite !== currentWebsite) {
+      payload.website = nextWebsite;
+    }
 
     return payload;
   }, [
     currentAbout,
     currentAvatarUrl,
     currentDisplayName,
+    currentWebsite,
     nextAbout,
     nextAvatarUrl,
     nextDisplayName,
+    nextWebsite,
+    websiteError,
   ]);
 
   const hasPendingDisplayNameClearRequest =
@@ -367,7 +303,10 @@ export function ProfileSettingsCard({
     hasPendingDisplayNameClearRequest || hasPendingAvatarClearRequest;
   const hasProfileChanges = Object.keys(updatePayload).length > 0;
   const canSave =
-    hasProfileChanges && !updateProfileMutation.isPending && !isUploadingAvatar;
+    hasProfileChanges &&
+    !websiteError &&
+    !updateProfileMutation.isPending &&
+    !isUploadingAvatar;
   const isAvatarEditorSaving =
     isAvatarEditorFinishing ||
     (shouldRenderAvatarEditor && updateProfileMutation.isPending);
@@ -485,6 +424,7 @@ export function ProfileSettingsCard({
     setDisplayNameDraft(updatePayload.displayName ?? currentDisplayName);
     setAvatarUrlDraft(updatePayload.avatarUrl ?? currentAvatarUrl);
     setAboutDraft(updatePayload.about ?? currentAbout);
+    setWebsiteDraft(updatePayload.website ?? currentWebsite);
     toast.success("Profile saved");
     return true;
   }, [
@@ -492,6 +432,7 @@ export function ProfileSettingsCard({
     currentAbout,
     currentAvatarUrl,
     currentDisplayName,
+    currentWebsite,
     updatePayload,
     updateProfileMutation,
   ]);
@@ -499,6 +440,10 @@ export function ProfileSettingsCard({
   const handleProfileMetadataEdit = React.useCallback(() => {
     if (!isEditingProfileMetadata) {
       setIsEditingProfileMetadata(true);
+      return;
+    }
+
+    if (websiteError) {
       return;
     }
 
@@ -522,6 +467,7 @@ export function ProfileSettingsCard({
     hasProfileChanges,
     isEditingProfileMetadata,
     saveProfile,
+    websiteError,
   ]);
 
   const handleAvatarEditorDone = React.useCallback(() => {
@@ -569,7 +515,7 @@ export function ProfileSettingsCard({
       <div>
         <SettingsSectionHeader
           title="Profile"
-          description="Update how your name, avatar, and bio appear across Buzz."
+          description="Update how your name, avatar, bio, and website appear across Buzz."
         />
 
         <div className="space-y-3">
@@ -843,6 +789,61 @@ export function ProfileSettingsCard({
                               )}
                             </div>
                           </div>
+
+                          <div className="flex min-h-16 items-center gap-4 px-4 py-3">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <label
+                                className="block text-sm font-medium"
+                                htmlFor="profile-website"
+                              >
+                                Website
+                              </label>
+                              {isEditingProfileMetadata ? (
+                                <>
+                                  <Input
+                                    aria-describedby={
+                                      websiteError
+                                        ? "profile-website-error"
+                                        : undefined
+                                    }
+                                    aria-invalid={Boolean(websiteError)}
+                                    className="h-auto border-0 bg-transparent px-0 py-0 text-sm text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
+                                    data-testid="profile-website"
+                                    disabled={updateProfileMutation.isPending}
+                                    id="profile-website"
+                                    inputMode="url"
+                                    onChange={(event) =>
+                                      setWebsiteDraft(event.target.value)
+                                    }
+                                    placeholder="your-site.com"
+                                    value={websiteDraft}
+                                  />
+                                  {websiteError ? (
+                                    <p
+                                      className="text-xs text-destructive"
+                                      data-testid="profile-website-error"
+                                      id="profile-website-error"
+                                    >
+                                      {websiteError}
+                                    </p>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <p
+                                  className={cn(
+                                    "min-w-0 truncate text-sm",
+                                    websiteDraft
+                                      ? "text-muted-foreground"
+                                      : "text-muted-foreground/55",
+                                  )}
+                                  data-testid="profile-website-value"
+                                  title={websiteDraft || "Not set"}
+                                >
+                                  {websiteDraft || "Not set"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
                         <div>
@@ -883,7 +884,7 @@ export function ProfileSettingsCard({
                                 testId="profile-nip05"
                                 value={nip05Handle}
                               />
-                              <NsecRevealRow />
+                              <PrivateKeyBackupRow />
                             </div>
                           </details>
                         </div>

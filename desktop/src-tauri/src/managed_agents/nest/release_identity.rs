@@ -1,7 +1,7 @@
 //! Build-scoped release identity for the shared agent workspace and CLI link.
 
 /// Upstream Buzz's release Nest directory name.
-const NEST_DIR_PROD: &str = ".buzz";
+pub(super) const NEST_DIR_PROD: &str = ".buzz";
 
 /// Nest directory name for dev builds. Dev builds intentionally remain shared
 /// across distributions so their existing development workflow is unchanged.
@@ -36,5 +36,16 @@ pub fn cli_link_name(is_dev: bool) -> &'static str {
         "buzz-dev"
     } else {
         release_cli_link_name(option_env!("BUZZ_DESKTOP_BUILD_CLI_LINK_NAME"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn release_nest_identity_defaults_upstream_and_accepts_isolation() {
+        assert_eq!(release_nest_dir(None), NEST_DIR_PROD);
+        assert_eq!(release_nest_dir(Some(".buzz-for-devin")), ".buzz-for-devin");
     }
 }

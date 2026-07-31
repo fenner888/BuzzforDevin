@@ -78,14 +78,18 @@ The installed app connects to an existing Buzz community selected during
 onboarding. A local relay and Docker are not required unless you want to
 self-host the complete Buzz stack.
 
-To update to a later immutable release tag, repair the current installation, or
-uninstall the app:
+To update to the current reviewed source release, repair the current
+installation, or uninstall the app:
 
 ```sh
-./scripts/update-macos-source.sh <new-release-tag>
+./scripts/update-macos-source.sh buzz-for-devin-v0.4.25-alpha.8
 ./scripts/repair-macos-source.sh
 ./scripts/uninstall-buzz-for-devin-macos.sh
 ```
+
+For a later release, copy its exact `buzz-for-devin-v...` tag from the
+[Releases page](https://github.com/fenner888/BuzzforDevin/releases) and pass it
+as the updater's argument.
 
 The update and repair paths preserve a recoverable previous app bundle.
 Uninstall moves the app to Trash and leaves Buzz data, Keychain entries, and
