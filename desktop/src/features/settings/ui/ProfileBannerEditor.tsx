@@ -25,7 +25,7 @@ export function ProfileBannerEditor({
   const normalizedUrl = normalizeProfileWebsite(bannerUrl);
 
   return (
-    <div className="w-full max-w-[576px] space-y-2">
+    <div className="w-full space-y-2">
       <div
         className="group relative h-48 overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-primary/25 via-muted to-sidebar-active/40"
         data-testid="profile-banner-editor"

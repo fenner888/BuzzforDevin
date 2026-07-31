@@ -188,6 +188,18 @@ test("uploads a banner and saves social links from profile settings", async ({
     )
     .toBeGreaterThanOrEqual(192);
   await expect
+    .poll(async () => {
+      const bannerBox = await page
+        .getByTestId("profile-banner-editor")
+        .boundingBox();
+      const profileCardBox = await page
+        .getByTestId("profile-metadata-card")
+        .boundingBox();
+      if (!bannerBox || !profileCardBox) return Number.POSITIVE_INFINITY;
+      return Math.abs(bannerBox.width - profileCardBox.width);
+    })
+    .toBeLessThanOrEqual(1);
+  await expect
     .poll(() =>
       page
         .getByTestId("profile-banner-editor")
