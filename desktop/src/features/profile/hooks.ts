@@ -91,6 +91,7 @@ async function persistSelfProfile(
     about: profile.about,
     website: profile.website,
     bannerUrl: profile.bannerUrl,
+    bannerPosition: profile.bannerPosition,
     socialLinks: profile.socialLinks,
     avatarDataUrl,
     updatedAt: Date.now(),
@@ -128,6 +129,7 @@ export function useProfileQuery(enabled = true) {
             about: cached.about,
             website: cached.website ?? null,
             bannerUrl: cached.bannerUrl ?? null,
+            bannerPosition: cached.bannerPosition ?? null,
             socialLinks: cached.socialLinks ?? [],
             nip05Handle: null,
             ownerPubkey: null,
@@ -406,6 +408,7 @@ export function useUsersBatchQuery(
             about: null,
             website: null,
             bannerUrl: null,
+            bannerPosition: null,
             socialLinks: [],
             // Batch endpoint gives UserProfileSummary (no event-presence flag).
             // These cached summaries are never used for the onboarding gate.

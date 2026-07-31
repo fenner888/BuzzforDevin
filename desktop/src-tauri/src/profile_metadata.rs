@@ -2,7 +2,7 @@ use nostr::{Event, EventBuilder, Kind};
 use serde_json::Value;
 use url::Url;
 
-use crate::models::{ProfileInfo, ProfileLinkInfo};
+use crate::models::{ProfileBannerPositionInfo, ProfileInfo, ProfileLinkInfo};
 
 const MAX_PROFILE_LINKS: usize = 8;
 const MAX_PROFILE_LINK_LABEL_CHARS: usize = 40;
@@ -17,6 +17,7 @@ pub(crate) struct ProfileMetadata<'a> {
     pub(crate) website: Option<&'a str>,
     pub(crate) nip05: Option<&'a str>,
     pub(crate) banner: Option<&'a str>,
+    pub(crate) banner_position: Option<&'a ProfileBannerPositionInfo>,
     pub(crate) social_links: Option<&'a [ProfileLinkInfo]>,
 }
 
@@ -41,10 +42,31 @@ pub(crate) fn build_profile(profile: ProfileMetadata<'_>) -> Result<EventBuilder
             serde_json::to_value(links).map_err(|error| error.to_string())?,
         );
     }
+    if let Some(position) = profile.banner_position {
+        map.insert(
+            "banner_position".into(),
+            serde_json::to_value(position).map_err(|error| error.to_string())?,
+        );
+    }
     Ok(EventBuilder::new(
         Kind::Custom(0),
         Value::Object(map).to_string(),
     ))
+}
+
+pub fn normalize_profile_banner_position(
+    position: ProfileBannerPositionInfo,
+) -> Result<ProfileBannerPositionInfo, String> {
+    if position.x > 100 || position.y > 100 {
+        return Err("banner position must be between 0 and 100".to_string());
+    }
+    Ok(position)
+}
+
+pub fn profile_banner_position_from_value(value: &Value) -> Option<ProfileBannerPositionInfo> {
+    serde_json::from_value::<ProfileBannerPositionInfo>(value.get("banner_position")?.clone())
+        .ok()
+        .and_then(|position| normalize_profile_banner_position(position).ok())
 }
 
 pub fn normalize_profile_website(website: &str) -> Result<String, String> {
@@ -130,6 +152,7 @@ pub fn profile_info_from_event(event: &Event) -> Result<ProfileInfo, String> {
         about: string_field("about"),
         website: string_field("website"),
         banner_url: string_field("banner"),
+        banner_position: profile_banner_position_from_value(&value),
         social_links: profile_links_from_value(&value),
         nip05_handle: string_field("nip05"),
         owner_pubkey: crate::nostr_convert::profile_valid_oa_owner_pubkey(event),
@@ -213,5 +236,37 @@ mod tests {
             "https://images.example/banner.png"
         );
         assert!(normalize_profile_banner("data:image/png;base64,nope").is_err());
+    }
+
+    #[test]
+    fn validates_and_round_trips_banner_position() {
+        let position = ProfileBannerPositionInfo { x: 18, y: 82 };
+        assert_eq!(
+            normalize_profile_banner_position(position).unwrap(),
+            position
+        );
+        assert!(
+            normalize_profile_banner_position(ProfileBannerPositionInfo { x: 101, y: 50 }).is_err()
+        );
+
+        let value = serde_json::json!({ "banner_position": { "x": 18, "y": 82 } });
+        assert_eq!(profile_banner_position_from_value(&value), Some(position));
+
+        let event = build_profile(ProfileMetadata {
+            display_name: Some("Alice"),
+            name: None,
+            picture: None,
+            about: None,
+            website: None,
+            nip05: None,
+            banner: Some("https://images.example/banner.png"),
+            banner_position: Some(&position),
+            social_links: None,
+        })
+        .unwrap()
+        .sign_with_keys(&nostr::Keys::generate())
+        .unwrap();
+        let content: Value = serde_json::from_str(&event.content).unwrap();
+        assert_eq!(profile_banner_position_from_value(&content), Some(position));
     }
 }

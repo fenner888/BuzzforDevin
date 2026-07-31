@@ -56,6 +56,7 @@ test("parseSelfProfileCache: valid v1 payload round-trips", () => {
     about: "Building better communities",
     website: "https://alice.example/",
     bannerUrl: "https://relay.example.com/media/banner.jpg",
+    bannerPosition: { x: 20, y: 75 },
     socialLinks: [
       {
         kind: "github",
@@ -78,6 +79,7 @@ test("parseSelfProfileCache: null fields are preserved", () => {
     about: null,
     website: null,
     bannerUrl: null,
+    bannerPosition: null,
     socialLinks: [],
     avatarDataUrl: null,
     updatedAt: 0,

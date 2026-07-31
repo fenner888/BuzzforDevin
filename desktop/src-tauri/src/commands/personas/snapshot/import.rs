@@ -852,6 +852,7 @@ mod import_avatar_tests {
             website: None,
             nip05: None,
             banner: None,
+            banner_position: None,
             social_links: None,
         })
         .unwrap()

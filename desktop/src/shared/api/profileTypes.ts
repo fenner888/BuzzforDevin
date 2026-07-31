@@ -6,6 +6,16 @@ export type ProfileLink = {
   url: string;
 };
 
+export type ProfileBannerPosition = {
+  x: number;
+  y: number;
+};
+
+export const DEFAULT_PROFILE_BANNER_POSITION: ProfileBannerPosition = {
+  x: 50,
+  y: 50,
+};
+
 export type Profile = {
   pubkey: string;
   displayName: string | null;
@@ -13,6 +23,7 @@ export type Profile = {
   about: string | null;
   website: string | null;
   bannerUrl: string | null;
+  bannerPosition: ProfileBannerPosition | null;
   socialLinks: ProfileLink[];
   nip05Handle: string | null;
   ownerPubkey: string | null;
@@ -26,6 +37,7 @@ export type UpdateProfileInput = {
   about?: string;
   website?: string;
   bannerUrl?: string;
+  bannerPosition?: ProfileBannerPosition;
   socialLinks?: ProfileLink[];
   nip05Handle?: string;
 };

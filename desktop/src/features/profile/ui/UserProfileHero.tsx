@@ -12,6 +12,7 @@ import {
 import { ProfileAvatar } from "@/features/profile/ui/ProfileAvatar";
 import { StatusEmoji } from "@/features/user-status/ui/StatusEmoji";
 import type { Profile } from "@/shared/api/types";
+import { DEFAULT_PROFILE_BANNER_POSITION } from "@/shared/api/profileTypes";
 import { cn } from "@/shared/lib/cn";
 import { rewriteRelayUrl } from "@/shared/lib/mediaUrl";
 
@@ -37,6 +38,8 @@ export function UserProfileHero({
   const bannerUrl = profile?.bannerUrl
     ? normalizeProfileWebsite(profile.bannerUrl)
     : null;
+  const bannerPosition =
+    profile?.bannerPosition ?? DEFAULT_PROFILE_BANNER_POSITION;
   const avatar = (
     <MaskedAvatarBadgeFrame
       badge={
@@ -83,6 +86,9 @@ export function UserProfileHero({
               alt=""
               className="h-full w-full object-cover"
               src={rewriteRelayUrl(bannerUrl)}
+              style={{
+                objectPosition: `${bannerPosition.x}% ${bannerPosition.y}%`,
+              }}
             />
           </div>
           <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">

@@ -11,7 +11,7 @@
  * prevents one community's cached identity from bleeding into another.
  */
 
-import type { ProfileLink } from "@/shared/api/types";
+import type { ProfileBannerPosition, ProfileLink } from "@/shared/api/types";
 
 const STORAGE_KEY_PREFIX = "buzz-self-profile.v1";
 
@@ -41,6 +41,7 @@ export type SelfProfileCache = {
   about: string | null;
   website?: string | null;
   bannerUrl?: string | null;
+  bannerPosition?: ProfileBannerPosition | null;
   socialLinks?: ProfileLink[];
   /**
    * Base64 data URL captured while the relay was reachable. Capped at 256 KB
@@ -67,6 +68,7 @@ const DEFAULT_CACHE: SelfProfileCache = Object.freeze({
   about: null,
   website: null,
   bannerUrl: null,
+  bannerPosition: null,
   socialLinks: [],
   avatarDataUrl: null,
   updatedAt: 0,
@@ -98,6 +100,17 @@ export function parseSelfProfileCache(json: unknown): SelfProfileCache | null {
   const about = typeof obj.about === "string" ? obj.about : null;
   const website = typeof obj.website === "string" ? obj.website : null;
   const bannerUrl = typeof obj.bannerUrl === "string" ? obj.bannerUrl : null;
+  const bannerPosition =
+    typeof obj.bannerPosition === "object" &&
+    obj.bannerPosition !== null &&
+    typeof (obj.bannerPosition as ProfileBannerPosition).x === "number" &&
+    typeof (obj.bannerPosition as ProfileBannerPosition).y === "number" &&
+    (obj.bannerPosition as ProfileBannerPosition).x >= 0 &&
+    (obj.bannerPosition as ProfileBannerPosition).x <= 100 &&
+    (obj.bannerPosition as ProfileBannerPosition).y >= 0 &&
+    (obj.bannerPosition as ProfileBannerPosition).y <= 100
+      ? (obj.bannerPosition as ProfileBannerPosition)
+      : null;
   const socialLinks = Array.isArray(obj.socialLinks)
     ? obj.socialLinks.filter(
         (link): link is ProfileLink =>
@@ -131,6 +144,7 @@ export function parseSelfProfileCache(json: unknown): SelfProfileCache | null {
     about,
     website,
     bannerUrl,
+    bannerPosition,
     socialLinks,
     avatarDataUrl,
     updatedAt,

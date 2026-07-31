@@ -143,6 +143,7 @@ type MockSearchProfileSeed = {
   about?: string | null;
   website?: string | null;
   bannerUrl?: string | null;
+  bannerPosition?: { x: number; y: number } | null;
   socialLinks?: Array<{ kind: string; label: string; url: string }>;
   ownerPubkey?: string | null;
   isAgent?: boolean;
@@ -541,6 +542,7 @@ type RawProfile = {
   about: string | null;
   website?: string | null;
   banner_url?: string | null;
+  banner_position?: { x: number; y: number } | null;
   social_links?: Array<{ kind: string; label: string; url: string }>;
   nip05_handle: string | null;
   owner_pubkey: string | null;
@@ -2343,6 +2345,7 @@ function seedMockSearchProfiles(config?: E2eConfig) {
       about: seed.about ?? null,
       website: seed.website ?? null,
       banner_url: seed.bannerUrl ?? null,
+      banner_position: seed.bannerPosition ?? null,
       social_links: seed.socialLinks ?? [],
       nip05_handle: seed.nip05Handle ?? null,
       owner_pubkey: seed.ownerPubkey ?? null,
@@ -5550,6 +5553,7 @@ async function handleGetProfile(config: E2eConfig | undefined) {
       avatar_url: null,
       website: null,
       banner_url: null,
+      banner_position: null,
       social_links: [],
       nip05_handle: null,
       owner_pubkey: null,
@@ -5564,6 +5568,7 @@ async function handleGetProfile(config: E2eConfig | undefined) {
     avatar_url: content.picture ?? null,
     website: content.website ?? null,
     banner_url: content.banner ?? null,
+    banner_position: content.banner_position ?? null,
     social_links: content.links ?? [],
     nip05_handle: content.nip05 ?? null,
     owner_pubkey: null,
@@ -5578,6 +5583,7 @@ async function handleUpdateProfile(
     about?: string;
     website?: string;
     bannerUrl?: string;
+    bannerPosition?: { x: number; y: number };
     socialLinks?: Array<{ kind: string; label: string; url: string }>;
     nip05Handle?: string;
   },
@@ -5605,6 +5611,9 @@ async function handleUpdateProfile(
     const hasAboutUpdate = typeof args.about === "string";
     const hasWebsiteUpdate = typeof args.website === "string";
     const hasBannerUpdate = typeof args.bannerUrl === "string";
+    const hasBannerPositionUpdate =
+      typeof args.bannerPosition?.x === "number" &&
+      typeof args.bannerPosition?.y === "number";
     const hasSocialLinksUpdate = Array.isArray(args.socialLinks);
     const hasNip05HandleUpdate = typeof args.nip05Handle === "string";
     const nextDisplayName = args.displayName?.trim() ?? "";
@@ -5630,6 +5639,9 @@ async function handleUpdateProfile(
     if (hasBannerUpdate && nextBanner !== profile.banner_url) {
       profile.banner_url = nextBanner || null;
     }
+    if (hasBannerPositionUpdate) {
+      profile.banner_position = args.bannerPosition ?? null;
+    }
     if (hasSocialLinksUpdate) {
       profile.social_links = args.socialLinks ?? [];
     }
@@ -5654,6 +5666,8 @@ async function handleUpdateProfile(
     about: args.about ?? currentContent.about ?? undefined,
     website: args.website ?? currentContent.website ?? undefined,
     banner: args.bannerUrl ?? currentContent.banner ?? undefined,
+    banner_position:
+      args.bannerPosition ?? currentContent.banner_position ?? undefined,
     links: args.socialLinks ?? currentContent.links ?? undefined,
     nip05: args.nip05Handle ?? currentContent.nip05 ?? undefined,
   });
@@ -5672,6 +5686,7 @@ async function handleUpdateProfile(
     avatar_url: updated.picture ?? null,
     website: updated.website ?? null,
     banner_url: updated.banner ?? null,
+    banner_position: updated.banner_position ?? null,
     social_links: updated.links ?? [],
     nip05_handle: updated.nip05 ?? null,
     owner_pubkey: null,
@@ -5708,6 +5723,7 @@ async function handleGetUserProfile(
       avatar_url: null,
       website: null,
       banner_url: null,
+      banner_position: null,
       social_links: [],
       nip05_handle: null,
       owner_pubkey: null,
@@ -5722,6 +5738,7 @@ async function handleGetUserProfile(
     avatar_url: content.picture ?? null,
     website: content.website ?? null,
     banner_url: content.banner ?? null,
+    banner_position: content.banner_position ?? null,
     social_links: content.links ?? [],
     nip05_handle: content.nip05 ?? null,
     owner_pubkey: null,
