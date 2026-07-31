@@ -8,7 +8,7 @@ Each person installs and authenticates Devin on their own computer. Buzz starts
 that local CLI with `devin acp`; it does not copy Devin credentials between
 users or machines.
 
-- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.4.25-alpha.8)
+- [Source alpha](https://github.com/fenner888/BuzzforDevin/releases/tag/buzz-for-devin-v0.5.2-alpha.1)
 - [Builder installation guide](docs/buzz-for-devin-builders.md)
 - [Devin integration notes](DEVIN.md)
 - [Upstream proposal](https://github.com/block/buzz/pull/3225)
@@ -53,9 +53,9 @@ local installer:
 ```sh
 cd "$HOME" &&
 GIT_CONFIG_GLOBAL=/dev/null git clone \
-  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-alpha8 &&
-cd BuzzforDevin-alpha8 &&
-git switch -c buzz-for-devin-alpha8 buzz-for-devin-v0.4.25-alpha.8 &&
+  https://github.com/fenner888/BuzzforDevin.git BuzzforDevin-v0.5.2-alpha.1 &&
+cd BuzzforDevin-v0.5.2-alpha.1 &&
+git switch -c buzz-for-devin-v0.5.2-alpha.1 buzz-for-devin-v0.5.2-alpha.1 &&
 ./scripts/install-macos-source.sh
 ```
 
@@ -82,7 +82,7 @@ To update to the current reviewed source release, repair the current
 installation, or uninstall the app:
 
 ```sh
-./scripts/update-macos-source.sh buzz-for-devin-v0.4.25-alpha.8
+./scripts/update-macos-source.sh buzz-for-devin-v0.5.2-alpha.1
 ./scripts/repair-macos-source.sh
 ./scripts/uninstall-buzz-for-devin-macos.sh
 ```
