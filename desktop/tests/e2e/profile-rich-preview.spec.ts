@@ -125,6 +125,13 @@ test("shows a richer human profile with verified channel context", async ({
     .poll(() =>
       panel
         .getByTestId("user-profile-banner")
+        .evaluate((element) => element.getBoundingClientRect().height),
+    )
+    .toBeGreaterThanOrEqual(144);
+  await expect
+    .poll(() =>
+      panel
+        .getByTestId("user-profile-banner")
         .locator("img")
         .evaluate((image) => image.naturalWidth),
     )
@@ -173,6 +180,13 @@ test("uploads a banner and saves social links from profile settings", async ({
   await expect(page.getByTestId("profile-banner-upload")).toHaveText(
     "Change banner",
   );
+  await expect
+    .poll(() =>
+      page
+        .getByTestId("profile-banner-editor")
+        .evaluate((element) => element.getBoundingClientRect().height),
+    )
+    .toBeGreaterThanOrEqual(192);
   await expect
     .poll(() =>
       page

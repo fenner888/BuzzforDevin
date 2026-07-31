@@ -75,7 +75,7 @@ export function UserProfileHero({
     <div className="flex w-full flex-col items-center gap-3 text-center">
       {bannerUrl ? (
         <div
-          className="relative mb-10 h-24 w-full"
+          className="relative mb-10 h-36 w-full"
           data-testid="user-profile-banner"
         >
           <div className="absolute inset-0 overflow-hidden rounded-2xl bg-muted">
