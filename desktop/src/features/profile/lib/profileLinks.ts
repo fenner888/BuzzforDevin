@@ -48,13 +48,32 @@ export function normalizeProfileLinkUrl(
   }
 }
 
-export function profileLinkDisplayValue(value: string): string {
+export function profileLinkDisplayValue(
+  value: string,
+  kind: ProfileLinkKind = "custom",
+): string {
   try {
     const url = new URL(value);
-    const path = `${url.pathname}${url.search}${url.hash}`;
-    return `${url.host}${path === "/" ? "" : path}`;
+    const segments = url.pathname.split("/").filter(Boolean);
+    if (kind === "github") {
+      return segments.length > 1
+        ? segments.slice(0, 2).join("/")
+        : segments[0]
+          ? `@${segments[0]}`
+          : "GitHub";
+    }
+    if (kind === "linkedin") {
+      const profileSegment = segments[0] === "in" ? segments[1] : undefined;
+      return profileSegment
+        ? `@${profileSegment}`
+        : segments.slice(0, 2).join("/") || "LinkedIn";
+    }
+    if (kind === "x") {
+      return segments[0] ? `@${segments[0].replace(/^@/, "")}` : "X";
+    }
+    return url.hostname.replace(/^www\./, "");
   } catch {
-    return value;
+    return "Link";
   }
 }
 

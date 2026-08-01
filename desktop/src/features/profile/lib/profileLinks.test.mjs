@@ -43,7 +43,24 @@ test("validates custom labels and duplicate predefined links", () => {
 
 test("formats profile link display values", () => {
   assert.equal(
-    profileLinkDisplayValue("https://github.com/fenner888"),
-    "github.com/fenner888",
+    profileLinkDisplayValue("https://github.com/fenner888", "github"),
+    "@fenner888",
+  );
+  assert.equal(
+    profileLinkDisplayValue(
+      "https://www.linkedin.com/in/mark-fenner?tracking=ignored",
+      "linkedin",
+    ),
+    "@mark-fenner",
+  );
+  assert.equal(
+    profileLinkDisplayValue("https://x.com/hybrid/status/123", "x"),
+    "@hybrid",
+  );
+  assert.equal(
+    profileLinkDisplayValue(
+      "https://portfolio.example/private/path?token=nope",
+    ),
+    "portfolio.example",
   );
 });

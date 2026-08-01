@@ -76,6 +76,11 @@ test("shows a richer human profile with verified channel context", async ({
             label: "LinkedIn",
             url: "https://linkedin.com/in/mark-fenner",
           },
+          {
+            kind: "x",
+            label: "X",
+            url: "https://x.com/hybrid",
+          },
         ],
       },
     ],
@@ -141,7 +146,10 @@ test("shows a richer human profile with verified channel context", async ({
     panel.getByTestId("user-profile-banner").locator("img"),
   ).toHaveCSS("object-position", "18% 82%");
   await expect(panel.getByTestId("user-profile-social-github-0")).toContainText(
-    "github.com/fenner888",
+    "@fenner888",
+  );
+  await expect(panel.getByTestId("user-profile-social-x-2")).toContainText(
+    "@hybrid",
   );
   await expect(panel.getByTestId("user-profile-channel-role")).toContainText(
     "Member in #general",
@@ -244,13 +252,13 @@ test("uploads a banner and saves social links from profile settings", async ({
   await page.getByTestId("profile-metadata-edit").click();
 
   await expect(page.getByTestId("profile-social-github-value")).toContainText(
-    "https://github.com/fenner888",
+    "@fenner888",
   );
   await expect(page.getByTestId("profile-social-linkedin-value")).toContainText(
-    "https://linkedin.com/in/mark-fenner",
+    "@mark-fenner",
   );
   await expect(page.getByTestId("profile-social-custom-value")).toContainText(
-    "https://markfenner.dev/work",
+    "markfenner.dev",
   );
 
   await waitForAnimations(page);
