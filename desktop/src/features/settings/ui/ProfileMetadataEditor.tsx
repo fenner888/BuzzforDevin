@@ -1,6 +1,11 @@
 import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 
-import { PROFILE_LINK_KINDS } from "@/features/profile/lib/profileLinks";
+import {
+  normalizeProfileLinkUrl,
+  PROFILE_LINK_KINDS,
+  profileLinkDisplayValue,
+} from "@/features/profile/lib/profileLinks";
+import { profileSocialIcon } from "@/features/profile/ui/ProfileSocialIcon";
 import { cn } from "@/shared/lib/cn";
 import type { ProfileLink, ProfileLinkKind } from "@/shared/api/types";
 import { Input } from "@/shared/ui/input";
@@ -253,14 +258,28 @@ export function ProfileMetadataEditor({
             ) : null}
           </div>
         ) : socialLinks.length > 0 ? (
-          <div className="space-y-1">
-            {socialLinks.map((link) => (
-              <ReadValue
-                key={`${link.kind}-${link.url}`}
-                testId={`profile-social-${link.kind}-value`}
-                value={`${link.label}: ${link.url}`}
-              />
-            ))}
+          <div className="flex flex-wrap gap-2">
+            {socialLinks.map((link) => {
+              const Icon = profileSocialIcon(link.kind);
+              const normalizedUrl = normalizeProfileLinkUrl(
+                link.url,
+                link.kind,
+              );
+              return (
+                <span
+                  className="inline-flex min-w-0 items-center gap-2 rounded-full bg-muted/55 px-3 py-2 text-sm text-muted-foreground"
+                  data-testid={`profile-social-${link.kind}-value`}
+                  key={`${link.kind}-${link.url}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-foreground" />
+                  <span className="truncate">
+                    {normalizedUrl
+                      ? profileLinkDisplayValue(normalizedUrl, link.kind)
+                      : link.label}
+                  </span>
+                </span>
+              );
+            })}
           </div>
         ) : (
           <ReadValue testId="profile-social-links-value" value="" />

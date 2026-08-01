@@ -1,16 +1,11 @@
-import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowUpRight,
-  AtSign,
-  BriefcaseBusiness,
-  Code2,
   Copy,
   Cpu,
   Ear,
   Fingerprint,
   Globe2,
-  Link2,
   Server,
   ShieldCheck,
   Terminal,
@@ -27,6 +22,7 @@ import {
   normalizeProfileLinkUrl,
   profileLinkDisplayValue,
 } from "@/features/profile/lib/profileLinks";
+import { profileSocialIcon } from "@/features/profile/ui/ProfileSocialIcon";
 import { truncatePubkey } from "@/shared/lib/pubkey";
 import { copyTextToClipboard } from "@/shared/lib/clipboard";
 import { PubKey } from "@/shared/ui/PubKey";
@@ -54,7 +50,7 @@ export type ProfileField = {
   copyValue?: string;
   displayValue: string;
   displayNode?: React.ReactNode;
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   onClick?: () => void;
   testId?: string;
@@ -223,17 +219,9 @@ export function buildPublicFields({
   for (const [index, link] of (profile?.socialLinks ?? []).entries()) {
     const url = normalizeProfileLinkUrl(link.url, link.kind);
     if (!url) continue;
-    const icon =
-      link.kind === "github"
-        ? Code2
-        : link.kind === "linkedin"
-          ? BriefcaseBusiness
-          : link.kind === "x"
-            ? AtSign
-            : Link2;
     fields.push({
-      displayValue: profileLinkDisplayValue(url),
-      icon,
+      displayValue: profileLinkDisplayValue(url, link.kind),
+      icon: profileSocialIcon(link.kind),
       label: link.label,
       onClick: () => {
         void import("@tauri-apps/plugin-opener").then(({ openUrl }) =>
