@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowUpRight,
+  ChevronDown,
   Copy,
   Cpu,
   Ear,
@@ -12,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import * as React from "react";
+import { toast } from "sonner";
 import { AgentStatusBadge } from "@/features/agents/ui/AgentStatusBadge";
 import { formatChannelRole } from "@/features/profile/lib/profileMemberContext";
 import {
@@ -76,6 +78,24 @@ const AGENT_SETTINGS_LABELS = new Set([
   "Start on launch",
 ]);
 const DIAGNOSTICS_LABELS = new Set(["Status", "Last error"]);
+const PROFILE_IDENTITY_LABELS = new Set(["NIP-05", "Public key"]);
+
+export function splitProfileIdentityFields(fields: ProfileField[]) {
+  return {
+    identityFields: fields.filter((field) =>
+      PROFILE_IDENTITY_LABELS.has(field.label),
+    ),
+    primaryFields: fields.filter(
+      (field) => !PROFILE_IDENTITY_LABELS.has(field.label),
+    ),
+  };
+}
+
+function openProfileUrl(url: string, label: string) {
+  void import("@tauri-apps/plugin-opener")
+    .then(({ openUrl }) => openUrl(url))
+    .catch(() => toast.error(`Could not open ${label}`));
+}
 
 export function bucketProfileFields(fields: ProfileField[]) {
   return {
@@ -207,11 +227,7 @@ export function buildPublicFields({
       displayValue: profileWebsiteDisplayValue(website),
       icon: Globe2,
       label: "Website",
-      onClick: () => {
-        void import("@tauri-apps/plugin-opener").then(({ openUrl }) =>
-          openUrl(website),
-        );
-      },
+      onClick: () => openProfileUrl(website, "Website"),
       testId: "user-profile-website",
     });
   }
@@ -223,11 +239,7 @@ export function buildPublicFields({
       displayValue: profileLinkDisplayValue(url, link.kind),
       icon: profileSocialIcon(link.kind),
       label: link.label,
-      onClick: () => {
-        void import("@tauri-apps/plugin-opener").then(({ openUrl }) =>
-          openUrl(url),
-        );
-      },
+      onClick: () => openProfileUrl(url, link.label),
       testId: `user-profile-social-${link.kind}-${index}`,
     });
   }
@@ -536,6 +548,42 @@ export function ProfileFieldGroup({ fields }: { fields: ProfileField[] }) {
         <ProfileFieldRows fields={fields} />
       </div>
     </section>
+  );
+}
+
+export function ProfileIdentityFieldGroup({
+  fields,
+}: {
+  fields: ProfileField[];
+}) {
+  if (fields.length === 0) return null;
+
+  return (
+    <details
+      className="group overflow-hidden rounded-2xl bg-muted/20"
+      data-testid="user-profile-identity"
+    >
+      <summary
+        className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+        data-testid="user-profile-identity-toggle"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/60">
+          <Fingerprint className="h-4 w-4 text-muted-foreground" />
+        </span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block text-xs font-medium text-foreground">
+            Identity
+          </span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">
+            Public identifiers
+          </span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-border/55">
+        <ProfileFieldRows fields={fields} />
+      </div>
+    </details>
   );
 }
 

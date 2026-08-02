@@ -154,10 +154,61 @@ test("shows a richer human profile with verified channel context", async ({
   await expect(panel.getByTestId("user-profile-channel-role")).toContainText(
     "Member in #general",
   );
-  await expect(panel.getByTestId("user-profile-copy-pubkey")).toBeVisible();
+  await expect(panel.getByTestId("user-profile-identity")).toBeVisible();
+  await expect(panel.getByTestId("user-profile-copy-pubkey")).not.toBeVisible();
 
   await waitForAnimations(page);
   await panel.screenshot({ path: `${SHOTS}/human-profile.png` });
+
+  await panel.getByTestId("user-profile-identity-toggle").click();
+  await expect(panel.getByTestId("user-profile-copy-pubkey")).toBeVisible();
+});
+
+test("falls back to the avatar when a public profile banner cannot load", async ({
+  page,
+}) => {
+  const brokenBannerUrl = "https://images.example/broken-banner.png";
+  await page.route(brokenBannerUrl, (route) => route.abort());
+  await installMockBridge(page, {
+    searchProfiles: [
+      {
+        bannerUrl: brokenBannerUrl,
+        displayName: "Broken Banner",
+        pubkey: TEST_IDENTITIES.bob.pubkey,
+      },
+    ],
+  });
+  await page.goto("/");
+  await page.getByTestId("channel-general").click();
+  await waitForMockLiveSubscription(page, "general");
+  await page.evaluate(
+    ({ pubkey }) => {
+      (
+        window as Window & {
+          __BUZZ_E2E_EMIT_MOCK_MESSAGE__: (input: {
+            channelName: string;
+            content: string;
+            pubkey: string;
+          }) => void;
+        }
+      ).__BUZZ_E2E_EMIT_MOCK_MESSAGE__({
+        channelName: "general",
+        content: "My banner is unavailable.",
+        pubkey,
+      });
+    },
+    { pubkey: TEST_IDENTITIES.bob.pubkey },
+  );
+  await page
+    .getByTestId("message-row")
+    .filter({ hasText: "My banner is unavailable." })
+    .locator("button")
+    .first()
+    .click();
+
+  const panel = page.getByTestId("user-profile-panel");
+  await expect(panel.getByTestId("user-profile-avatar")).toBeVisible();
+  await expect(panel.getByTestId("user-profile-banner")).toHaveCount(0);
 });
 
 test("uploads a banner and saves social links from profile settings", async ({
@@ -317,6 +368,37 @@ test("rejects mismatched social domains and caps custom profile links", async ({
       return inputs.every(Boolean);
     })
     .toBe(true);
+});
+
+test("shows a recoverable fallback when a banner preview cannot load", async ({
+  page,
+}) => {
+  const brokenBannerUrl = "https://images.example/broken-upload.png";
+  await page.route(brokenBannerUrl, (route) => route.abort());
+  await installMockBridge(page, {
+    uploadDescriptors: [
+      {
+        sha256: "c".repeat(64),
+        size: 512,
+        type: "image/png",
+        uploaded: 1_785_499_200,
+        url: brokenBannerUrl,
+      },
+    ],
+  });
+  await page.goto("/");
+  await openSettings(page, "profile");
+  await page.getByTestId("profile-banner-file-input").setInputFiles({
+    buffer: Buffer.from([137, 80, 78, 71]),
+    mimeType: "image/png",
+    name: "broken-profile-banner.png",
+  });
+
+  await expect(page.getByTestId("profile-banner-fallback")).toBeVisible();
+  await expect(page.getByTestId("profile-banner-upload")).toHaveText(
+    "Change banner",
+  );
+  await expect(page.getByTestId("profile-banner-remove")).toBeVisible();
 });
 
 test("keeps the rich profile inside a narrow desktop viewport", async ({

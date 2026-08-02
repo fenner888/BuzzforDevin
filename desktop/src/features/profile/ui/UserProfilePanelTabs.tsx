@@ -26,6 +26,8 @@ import {
   type ProfileField,
   ProfileFieldGroup,
   ProfileFieldRows,
+  ProfileIdentityFieldGroup,
+  splitProfileIdentityFields,
 } from "@/features/profile/ui/UserProfilePanelFields";
 import type { ProfilePanelTab } from "@/features/profile/ui/UserProfilePanelUtils";
 import { cn } from "@/shared/lib/cn";
@@ -314,6 +316,8 @@ export function ProfileInfoTabContent({
         },
       ]
     : agentInfoFields;
+  const { identityFields, primaryFields } =
+    splitProfileIdentityFields(infoFields);
   const hasInfoFields = infoFields.length > 0;
   const hasInstances = instances.length > 1;
   const feedScope = useProfileActivityFeedScope(activityAgent, activeTurns);
@@ -346,7 +350,10 @@ export function ProfileInfoTabContent({
           />
         )
       ) : null}
-      {hasInfoFields ? <ProfileFieldGroup fields={infoFields} /> : null}
+      {primaryFields.length > 0 ? (
+        <ProfileFieldGroup fields={primaryFields} />
+      ) : null}
+      <ProfileIdentityFieldGroup fields={identityFields} />
       {hasInstances ? (
         <ProfileInstancesSection
           currentPubkey={pubkey}

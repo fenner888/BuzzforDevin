@@ -38,6 +38,11 @@ export function UserProfileHero({
   const bannerUrl = profile?.bannerUrl
     ? normalizeProfileWebsite(profile.bannerUrl)
     : null;
+  const bannerSrc = bannerUrl ? rewriteRelayUrl(bannerUrl) : null;
+  const [failedBannerSrc, setFailedBannerSrc] = React.useState<string | null>(
+    null,
+  );
+  const showBanner = Boolean(bannerSrc && failedBannerSrc !== bannerSrc);
   const bannerPosition =
     profile?.bannerPosition ?? DEFAULT_PROFILE_BANNER_POSITION;
   const avatar = (
@@ -76,7 +81,7 @@ export function UserProfileHero({
 
   return (
     <div className="flex w-full flex-col items-center gap-3 text-center">
-      {bannerUrl ? (
+      {showBanner && bannerSrc ? (
         <div
           className="relative mb-10 h-36 w-full"
           data-testid="user-profile-banner"
@@ -85,7 +90,8 @@ export function UserProfileHero({
             <img
               alt=""
               className="h-full w-full object-cover"
-              src={rewriteRelayUrl(bannerUrl)}
+              onError={() => setFailedBannerSrc(bannerSrc)}
+              src={bannerSrc}
               style={{
                 objectPosition: `${bannerPosition.x}% ${bannerPosition.y}%`,
               }}
