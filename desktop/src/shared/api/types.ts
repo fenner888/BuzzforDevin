@@ -110,12 +110,11 @@ export type Profile = {
   displayName: string | null;
   avatarUrl: string | null;
   about: string | null;
+  website: string | null;
   nip05Handle: string | null;
   ownerPubkey: string | null;
-  /** True when a real kind:0 metadata event exists on the relay for this pubkey.
-   * False for the synthesized fallback returned when no event is present.
-   * Used by the onboarding gate to distinguish new users from returning users
-   * whose display name happens to be empty. */
+  /** True for a real kind:0 event; false for a synthesized fallback.
+   * Lets onboarding distinguish new users from empty returning profiles. */
   hasProfileEvent: boolean;
 };
 
@@ -154,6 +153,7 @@ export type UpdateProfileInput = {
   displayName?: string;
   avatarUrl?: string;
   about?: string;
+  website?: string;
   nip05Handle?: string;
 };
 

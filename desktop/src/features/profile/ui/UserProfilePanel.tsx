@@ -51,6 +51,7 @@ import { usePresenceQuery } from "@/features/presence/hooks";
 import {
   useContactListQuery,
   useFollowMutation,
+  useProfileChannelRole,
   useProfileQuery,
   useUnfollowMutation,
   useUserProfileQuery,
@@ -82,6 +83,7 @@ import {
   resolveAgentInstruction,
   resolvePanelProfile,
   resolveProfileDisplayName,
+  resolveProfileEditTarget,
   truncatePubkey,
   type UserProfilePanelProps,
   useRetainedPersona,
@@ -298,6 +300,11 @@ export function UserProfilePanel({
   );
   const isBot =
     Boolean(relayAgent || managedAgent || resolvedPersona) || isAgentByOaOwner;
+  const callerChannelRole = useProfileChannelRole(
+    callerChannelId,
+    effectivePubkey,
+    Boolean(callerChannelId && effectivePubkey && !isBot),
+  );
   const managedAgentOwner = useIsManagedAgent(isBot ? effectivePubkey : null);
   // Does THIS desktop hold the agent's seckey (or is this an editable persona)?
   // Gates edit (which needs the key) and grants owner access when managed locally.
@@ -386,6 +393,9 @@ export function UserProfilePanel({
     return map;
   }, [channelsQuery.data]);
 
+  const callerChannelName =
+    channelsQuery.data?.find((channel) => channel.id === callerChannelId)
+      ?.name ?? null;
   const targetKey =
     effectivePubkey ?? `persona:${resolvedPersona?.id ?? "unknown"}`;
   const prevTargetKeyRef = React.useRef(targetKey);
@@ -402,12 +412,16 @@ export function UserProfilePanel({
   });
 
   const handleEditAgent = React.useCallback(() => {
-    if (resolvedPersona) {
+    const target = resolveProfileEditTarget({
+      hasManagedInstance: managedAgent !== undefined,
+      hasDefinition: resolvedPersona !== undefined,
+    });
+    if (target === "definition" && resolvedPersona) {
       setPersonaDialogState(editPersonaDialogState(resolvedPersona));
       return;
     }
     setEditAgentOpen(true);
-  }, [resolvedPersona]);
+  }, [managedAgent, resolvedPersona]);
 
   const { deleteManagedAgentRecord, deleteManagedAgentsForPersona } =
     useProfileAgentDeletion({
@@ -741,6 +755,8 @@ export function UserProfilePanel({
   );
   const { agentInfoFields, agentSettingsFields, diagnosticsFields } =
     useProfileFieldBuckets({
+      channelRole: isBot ? null : callerChannelRole,
+      channelName: isBot ? null : callerChannelName,
       isBot,
       isOwner: viewerIsOwner,
       managedAgent,

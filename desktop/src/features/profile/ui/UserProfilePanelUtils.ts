@@ -163,6 +163,7 @@ export function buildPersonaDraftProfile(persona: AgentPersona): Profile {
     displayName: persona.displayName,
     avatarUrl: persona.avatarUrl,
     about: null,
+    website: null,
     nip05Handle: null,
     ownerPubkey: null,
     // Draft profile synthesised from persona config — not backed by a kind:0 event.
@@ -257,6 +258,39 @@ export function resolveAgentInstruction(
   return (
     managedAgent?.systemPrompt?.trim() || persona?.systemPrompt.trim() || null
   );
+}
+
+/**
+ * Decide which editor the profile panel's Edit action must open.
+ *
+ * The profile panel is an *instance* view: it shows this agent's own public
+ * key, runtime state, and Stop/Restart controls. So when a concrete managed
+ * instance exists, Edit has to open the instance editor — the instance
+ * record's `respond_to`/allowlist is the pair `build_respond_to_env` turns
+ * into `BUZZ_ACP_RESPOND_TO` at spawn, and it is therefore the only policy the
+ * running agent actually enforces.
+ *
+ * Routing an instance-backed profile to the definition editor instead lets the
+ * dialog display an inbound-author policy that the live agent does not apply:
+ * a definition's behavior group is copied onto an instance only when a *new*
+ * instance is minted from it, never onto instances that already exist. An
+ * owner who added someone to an allowlist there would believe they had granted
+ * access — and, worse, an owner who removed someone would believe they had
+ * revoked it — while the running agent kept its original policy.
+ *
+ * Definition editing stays reachable: the agent library's actions menu opens
+ * the definition editor directly, and the instance editor offers a hop to the
+ * linked definition.
+ */
+export function resolveProfileEditTarget({
+  hasManagedInstance,
+  hasDefinition,
+}: {
+  hasManagedInstance: boolean;
+  hasDefinition: boolean;
+}): "instance" | "definition" {
+  if (hasManagedInstance) return "instance";
+  return hasDefinition ? "definition" : "instance";
 }
 
 export function personaManagedAgentUpdate(

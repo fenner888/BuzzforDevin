@@ -141,6 +141,7 @@ type MockSearchProfileSeed = {
   avatarUrl?: string | null;
   nip05Handle?: string | null;
   about?: string | null;
+  website?: string | null;
   ownerPubkey?: string | null;
   isAgent?: boolean;
 };
@@ -543,6 +544,7 @@ type RawProfile = {
   name?: string | null;
   avatar_url: string | null;
   about: string | null;
+  website?: string | null;
   nip05_handle: string | null;
   owner_pubkey: string | null;
   is_agent?: boolean;
@@ -2342,6 +2344,7 @@ function seedMockSearchProfiles(config?: E2eConfig) {
       display_name: seed.displayName,
       avatar_url: seed.avatarUrl ?? null,
       about: seed.about ?? null,
+      website: seed.website ?? null,
       nip05_handle: seed.nip05Handle ?? null,
       owner_pubkey: seed.ownerPubkey ?? null,
       is_agent: seed.isAgent ?? false,
@@ -5546,6 +5549,7 @@ async function handleGetProfile(config: E2eConfig | undefined) {
       display_name: null,
       about: null,
       avatar_url: null,
+      website: null,
       nip05_handle: null,
       owner_pubkey: null,
       has_profile_event: false,
@@ -5557,6 +5561,7 @@ async function handleGetProfile(config: E2eConfig | undefined) {
     display_name: content.display_name ?? content.name ?? null,
     about: content.about ?? null,
     avatar_url: content.picture ?? null,
+    website: content.website ?? null,
     nip05_handle: content.nip05 ?? null,
     owner_pubkey: null,
     has_profile_event: true,
@@ -5568,6 +5573,7 @@ async function handleUpdateProfile(
     displayName?: string;
     avatarUrl?: string;
     about?: string;
+    website?: string;
     nip05Handle?: string;
   },
   config: E2eConfig | undefined,
@@ -5592,10 +5598,12 @@ async function handleUpdateProfile(
     const hasDisplayNameUpdate = typeof args.displayName === "string";
     const hasAvatarUrlUpdate = typeof args.avatarUrl === "string";
     const hasAboutUpdate = typeof args.about === "string";
+    const hasWebsiteUpdate = typeof args.website === "string";
     const hasNip05HandleUpdate = typeof args.nip05Handle === "string";
     const nextDisplayName = args.displayName?.trim() ?? "";
     const nextAvatarUrl = args.avatarUrl?.trim() ?? "";
     const nextAbout = args.about?.trim() ?? "";
+    const nextWebsite = args.website?.trim() ?? "";
     const nextNip05Handle = args.nip05Handle?.trim() ?? "";
 
     if (hasDisplayNameUpdate && nextDisplayName !== profile.display_name) {
@@ -5607,6 +5615,9 @@ async function handleUpdateProfile(
     }
     if (hasAboutUpdate && nextAbout !== profile.about) {
       profile.about = nextAbout || null;
+    }
+    if (hasWebsiteUpdate && nextWebsite !== profile.website) {
+      profile.website = nextWebsite || null;
     }
     if (hasNip05HandleUpdate && nextNip05Handle !== profile.nip05_handle) {
       profile.nip05_handle = nextNip05Handle || null;
@@ -5627,6 +5638,7 @@ async function handleUpdateProfile(
     name: currentContent.display_name ?? undefined,
     picture: args.avatarUrl ?? currentContent.picture ?? undefined,
     about: args.about ?? currentContent.about ?? undefined,
+    website: args.website ?? currentContent.website ?? undefined,
     nip05: args.nip05Handle ?? currentContent.nip05 ?? undefined,
   });
   await submitSignedEvent(config, {
@@ -5642,6 +5654,7 @@ async function handleUpdateProfile(
     display_name: updated.display_name ?? null,
     about: updated.about ?? null,
     avatar_url: updated.picture ?? null,
+    website: updated.website ?? null,
     nip05_handle: updated.nip05 ?? null,
     owner_pubkey: null,
     has_profile_event: true,
@@ -5675,6 +5688,7 @@ async function handleGetUserProfile(
       display_name: null,
       about: null,
       avatar_url: null,
+      website: null,
       nip05_handle: null,
       owner_pubkey: null,
       has_profile_event: false,
@@ -5686,6 +5700,7 @@ async function handleGetUserProfile(
     display_name: content.display_name ?? content.name ?? null,
     about: content.about ?? null,
     avatar_url: content.picture ?? null,
+    website: content.website ?? null,
     nip05_handle: content.nip05 ?? null,
     owner_pubkey: null,
     has_profile_event: true,

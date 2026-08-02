@@ -31,6 +31,7 @@ const PROFILE = {
   displayName: "Alice",
   avatarUrl: "https://cdn.example/avatar.png",
   about: "About Alice",
+  website: "https://alice.example/",
   nip05Handle: null,
   ownerPubkey: null,
   hasProfileEvent: true,
@@ -85,6 +86,7 @@ test("successful deferred save synchronizes every profile cache", async () => {
   assert.equal(persisted.displayName, PROFILE.displayName);
   assert.equal(persisted.avatarUrl, PROFILE.avatarUrl);
   assert.equal(persisted.about, PROFILE.about);
+  assert.equal(persisted.website, PROFILE.website);
   assert.equal(persisted.avatarDataUrl, null);
   assert.equal(persisted.hasProfileEvent, true);
   assert.ok(persisted.updatedAt > 0);

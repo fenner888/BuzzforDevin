@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use buzz_core_pkg::PresenceStatus;
 use serde_json::Value;
 use tauri::State;
+use url::Url;
 
 use crate::{
     app_state::AppState,
@@ -41,6 +42,7 @@ pub async fn update_profile(
     display_name: Option<String>,
     avatar_url: Option<String>,
     about: Option<String>,
+    website: Option<String>,
     nip05_handle: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ProfileInfo, String> {
@@ -73,11 +75,18 @@ pub async fn update_profile(
     let ab = about
         .as_deref()
         .or_else(|| current.get("about").and_then(Value::as_str));
+    let normalized_website = website
+        .as_deref()
+        .map(normalize_profile_website)
+        .transpose()?;
+    let web = normalized_website
+        .as_deref()
+        .or_else(|| current.get("website").and_then(Value::as_str));
     let nip05 = nip05_handle
         .as_deref()
         .or_else(|| current.get("nip05").and_then(Value::as_str));
 
-    let builder = events::build_profile(dn, name, picture, ab, nip05)?;
+    let builder = events::build_profile(dn, name, picture, ab, web, nip05)?;
     submit_event(builder, &state).await?;
 
     // Re-fetch to return canonical profile.
@@ -155,10 +164,11 @@ fn build_deferred_profile_event(
     let display_name = current.get("display_name").and_then(Value::as_str);
     let name = current.get("name").and_then(Value::as_str);
     let about = current.get("about").and_then(Value::as_str);
+    let website = current.get("website").and_then(Value::as_str);
     let nip05 = current.get("nip05").and_then(Value::as_str);
 
     Ok(
-        events::build_profile(display_name, name, Some(avatar_url), about, nip05)?
+        events::build_profile(display_name, name, Some(avatar_url), about, website, nip05)?
             .custom_created_at(monotonic_created_at(
                 prior_event.map(|event| event.created_at.as_secs() as i64),
             )),
@@ -175,6 +185,26 @@ fn capture_expected_signer(state: &AppState, expected_pubkey: &str) -> Result<no
 
 fn normalized_avatar_url(avatar_url: Option<&str>) -> Option<&str> {
     avatar_url.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn normalize_profile_website(website: &str) -> Result<String, String> {
+    let trimmed = website.trim();
+    if trimmed.is_empty() {
+        return Ok(String::new());
+    }
+    let candidate = if trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{trimmed}")
+    };
+    let parsed = Url::parse(&candidate).map_err(|_| "website must be a valid URL".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err("website must use http or https".to_string());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("website must not contain embedded credentials".to_string());
+    }
+    Ok(parsed.to_string())
 }
 
 #[tauri::command]
@@ -408,6 +438,7 @@ fn empty_profile_info(pubkey: &str) -> ProfileInfo {
         display_name: None,
         avatar_url: None,
         about: None,
+        website: None,
         nip05_handle: None,
         owner_pubkey: None,
         has_profile_event: false,
@@ -417,6 +448,17 @@ fn empty_profile_info(pubkey: &str) -> ProfileInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_website_normalizes_and_validates_web_urls() {
+        assert_eq!(
+            normalize_profile_website("example.com/work").unwrap(),
+            "https://example.com/work"
+        );
+        assert!(normalize_profile_website("javascript:alert(1)").is_err());
+        assert!(normalize_profile_website("https://user:pass@example.com").is_err());
+        assert_eq!(normalize_profile_website("  ").unwrap(), "");
+    }
 
     #[test]
     fn deferred_profile_signer_is_captured_and_rejects_wrong_identity() {

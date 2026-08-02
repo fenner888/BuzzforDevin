@@ -32,6 +32,7 @@ pub struct ProfileInfo {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub about: Option<String>,
+    pub website: Option<String>,
     pub nip05_handle: Option<String>,
     pub owner_pubkey: Option<String>,
     /// `true` when a real kind:0 event was found on the relay; `false` for the

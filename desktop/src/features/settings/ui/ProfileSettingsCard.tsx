@@ -26,6 +26,7 @@ import { PrivateKeyBackupRow } from "./PrivateKeyBackupRow";
 import { SettingsSectionHeader } from "./SettingsSectionHeader";
 import { SignOutSection } from "./SignOutSection";
 import { writeTextToClipboard } from "@/shared/lib/clipboard";
+import { normalizeProfileWebsite } from "@/features/profile/lib/profileWebsite";
 
 type ProfileSettingsCardProps = {
   currentPubkey?: string;
@@ -139,9 +140,11 @@ export function ProfileSettingsCard({
   const currentDisplayName = profile?.displayName ?? "";
   const currentAvatarUrl = profile?.avatarUrl ?? "";
   const currentAbout = profile?.about ?? "";
+  const currentWebsite = profile?.website ?? "";
   const [displayNameDraft, setDisplayNameDraft] = React.useState("");
   const [avatarUrlDraft, setAvatarUrlDraft] = React.useState("");
   const [aboutDraft, setAboutDraft] = React.useState("");
+  const [websiteDraft, setWebsiteDraft] = React.useState("");
   const [uploadedAvatarUrlDraft, setUploadedAvatarUrlDraft] = React.useState<
     string | null
   >(null);
@@ -191,6 +194,12 @@ export function ProfileSettingsCard({
       setAboutDraft(currentAbout);
     }
   }, [currentAbout]);
+
+  React.useEffect(() => {
+    if (!isEditingProfileMetadataRef.current) {
+      setWebsiteDraft(currentWebsite);
+    }
+  }, [currentWebsite]);
 
   React.useEffect(() => {
     if (
@@ -245,11 +254,19 @@ export function ProfileSettingsCard({
   const nextDisplayName = displayNameDraft.trim();
   const nextAvatarUrl = avatarUrlDraft.trim();
   const nextAbout = aboutDraft.trim();
+  const rawNextWebsite = websiteDraft.trim();
+  const normalizedNextWebsite = normalizeProfileWebsite(rawNextWebsite);
+  const websiteError =
+    rawNextWebsite.length > 0 && normalizedNextWebsite === null
+      ? "Enter a valid website using http or https."
+      : null;
+  const nextWebsite = normalizedNextWebsite ?? "";
   const updatePayload = React.useMemo(() => {
     const payload: {
       displayName?: string;
       avatarUrl?: string;
       about?: string;
+      website?: string;
     } = {};
 
     if (nextDisplayName.length > 0 && nextDisplayName !== currentDisplayName) {
@@ -261,15 +278,21 @@ export function ProfileSettingsCard({
     if (nextAbout !== currentAbout) {
       payload.about = nextAbout;
     }
+    if (!websiteError && nextWebsite !== currentWebsite) {
+      payload.website = nextWebsite;
+    }
 
     return payload;
   }, [
     currentAbout,
     currentAvatarUrl,
     currentDisplayName,
+    currentWebsite,
     nextAbout,
     nextAvatarUrl,
     nextDisplayName,
+    nextWebsite,
+    websiteError,
   ]);
 
   const hasPendingDisplayNameClearRequest =
@@ -280,7 +303,10 @@ export function ProfileSettingsCard({
     hasPendingDisplayNameClearRequest || hasPendingAvatarClearRequest;
   const hasProfileChanges = Object.keys(updatePayload).length > 0;
   const canSave =
-    hasProfileChanges && !updateProfileMutation.isPending && !isUploadingAvatar;
+    hasProfileChanges &&
+    !websiteError &&
+    !updateProfileMutation.isPending &&
+    !isUploadingAvatar;
   const isAvatarEditorSaving =
     isAvatarEditorFinishing ||
     (shouldRenderAvatarEditor && updateProfileMutation.isPending);
@@ -398,6 +424,7 @@ export function ProfileSettingsCard({
     setDisplayNameDraft(updatePayload.displayName ?? currentDisplayName);
     setAvatarUrlDraft(updatePayload.avatarUrl ?? currentAvatarUrl);
     setAboutDraft(updatePayload.about ?? currentAbout);
+    setWebsiteDraft(updatePayload.website ?? currentWebsite);
     toast.success("Profile saved");
     return true;
   }, [
@@ -405,6 +432,7 @@ export function ProfileSettingsCard({
     currentAbout,
     currentAvatarUrl,
     currentDisplayName,
+    currentWebsite,
     updatePayload,
     updateProfileMutation,
   ]);
@@ -412,6 +440,10 @@ export function ProfileSettingsCard({
   const handleProfileMetadataEdit = React.useCallback(() => {
     if (!isEditingProfileMetadata) {
       setIsEditingProfileMetadata(true);
+      return;
+    }
+
+    if (websiteError) {
       return;
     }
 
@@ -435,6 +467,7 @@ export function ProfileSettingsCard({
     hasProfileChanges,
     isEditingProfileMetadata,
     saveProfile,
+    websiteError,
   ]);
 
   const handleAvatarEditorDone = React.useCallback(() => {
@@ -482,7 +515,7 @@ export function ProfileSettingsCard({
       <div>
         <SettingsSectionHeader
           title="Profile"
-          description="Update how your name, avatar, and bio appear across Buzz."
+          description="Update how your name, avatar, bio, and website appear across Buzz."
         />
 
         <div className="space-y-3">
@@ -752,6 +785,61 @@ export function ProfileSettingsCard({
                                   title={aboutDraft || "Not set"}
                                 >
                                   {aboutDraft || "Not set"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex min-h-16 items-center gap-4 px-4 py-3">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <label
+                                className="block text-sm font-medium"
+                                htmlFor="profile-website"
+                              >
+                                Website
+                              </label>
+                              {isEditingProfileMetadata ? (
+                                <>
+                                  <Input
+                                    aria-describedby={
+                                      websiteError
+                                        ? "profile-website-error"
+                                        : undefined
+                                    }
+                                    aria-invalid={Boolean(websiteError)}
+                                    className="h-auto border-0 bg-transparent px-0 py-0 text-sm text-muted-foreground shadow-none placeholder:text-muted-foreground/60 focus-visible:ring-0"
+                                    data-testid="profile-website"
+                                    disabled={updateProfileMutation.isPending}
+                                    id="profile-website"
+                                    inputMode="url"
+                                    onChange={(event) =>
+                                      setWebsiteDraft(event.target.value)
+                                    }
+                                    placeholder="your-site.com"
+                                    value={websiteDraft}
+                                  />
+                                  {websiteError ? (
+                                    <p
+                                      className="text-xs text-destructive"
+                                      data-testid="profile-website-error"
+                                      id="profile-website-error"
+                                    >
+                                      {websiteError}
+                                    </p>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <p
+                                  className={cn(
+                                    "min-w-0 truncate text-sm",
+                                    websiteDraft
+                                      ? "text-muted-foreground"
+                                      : "text-muted-foreground/55",
+                                  )}
+                                  data-testid="profile-website-value"
+                                  title={websiteDraft || "Not set"}
+                                >
+                                  {websiteDraft || "Not set"}
                                 </p>
                               )}
                             </div>
