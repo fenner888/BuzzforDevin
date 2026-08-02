@@ -1,4 +1,12 @@
-import { Check, ImagePlus, Move, RotateCcw, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ImageOff,
+  ImagePlus,
+  Move,
+  RotateCcw,
+  Trash2,
+  X,
+} from "lucide-react";
 import * as React from "react";
 
 import { normalizeProfileWebsite } from "@/features/profile/lib/profileWebsite";
@@ -32,6 +40,11 @@ export function ProfileBannerEditor({
     onUploadSuccess: onChange,
   });
   const normalizedUrl = normalizeProfileWebsite(bannerUrl);
+  const bannerSrc = normalizedUrl ? rewriteRelayUrl(normalizedUrl) : null;
+  const [failedBannerSrc, setFailedBannerSrc] = React.useState<string | null>(
+    null,
+  );
+  const showBanner = Boolean(bannerSrc && failedBannerSrc !== bannerSrc);
   const [isAdjusting, setIsAdjusting] = React.useState(false);
   const [draftPosition, setDraftPosition] =
     React.useState<ProfileBannerPosition>(bannerPosition);
@@ -98,16 +111,26 @@ export function ProfileBannerEditor({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
       >
-        {normalizedUrl ? (
+        {showBanner && bannerSrc ? (
           <img
             alt="Profile banner"
             className="h-full w-full object-cover"
             draggable={false}
-            src={rewriteRelayUrl(normalizedUrl)}
+            onError={() => setFailedBannerSrc(bannerSrc)}
+            src={bannerSrc}
             style={{
               objectPosition: `${visiblePosition.x}% ${visiblePosition.y}%`,
             }}
           />
+        ) : null}
+        {normalizedUrl && !showBanner ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+            data-testid="profile-banner-fallback"
+          >
+            <ImageOff className="h-6 w-6" />
+            Banner preview unavailable
+          </div>
         ) : null}
         {isAdjusting ? (
           <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-sm font-medium shadow-sm backdrop-blur">

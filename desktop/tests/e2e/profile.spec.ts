@@ -377,7 +377,7 @@ test("nests the avatar edit button in a clipped notch", async ({ page }) => {
   expect(transitionProperty).toContain("scale");
 });
 
-test("swaps the avatar preview and mode tabs while editing", async ({
+test("places avatar mode tabs above the banner while editing", async ({
   page,
 }) => {
   await page.goto("/");
@@ -398,18 +398,19 @@ test("swaps the avatar preview and mode tabs while editing", async ({
 
   const openPreviewBox = await previewFrame.boundingBox();
   const tabListBox = await tabList.boundingBox();
-  if (!openPreviewBox || !tabListBox) {
+  const bannerBox = await page
+    .getByTestId("profile-banner-editor")
+    .boundingBox();
+  if (!openPreviewBox || !tabListBox || !bannerBox) {
     throw new Error("Profile avatar edit layout did not render bounds.");
   }
 
-  const closedPreviewCenterY = closedPreviewBox.y + closedPreviewBox.height / 2;
-  const tabListCenterY = tabListBox.y + tabListBox.height / 2;
-  expect(Math.abs(tabListCenterY - closedPreviewCenterY)).toBeLessThan(16);
   const tabListBottomY = tabListBox.y + tabListBox.height;
-  const segmentToPreviewGap = openPreviewBox.y - tabListBottomY;
-  expect(segmentToPreviewGap).toBeGreaterThan(48);
-  expect(segmentToPreviewGap).toBeLessThan(72);
-  expect(openPreviewBox.y).toBeGreaterThan(closedPreviewCenterY + 72);
+  const segmentToBannerGap = bannerBox.y - tabListBottomY;
+  expect(segmentToBannerGap).toBeGreaterThan(48);
+  expect(segmentToBannerGap).toBeLessThan(72);
+  expect(openPreviewBox.y).toBeGreaterThan(bannerBox.y);
+  expect(openPreviewBox.y).toBeGreaterThan(closedPreviewBox.y + 160);
 
   await page.getByTestId("profile-avatar-done").click();
   await waitForAvatarEditorToClose(page);
