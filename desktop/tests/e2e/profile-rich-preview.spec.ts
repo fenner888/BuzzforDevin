@@ -59,27 +59,27 @@ test("shows a richer human profile with verified channel context", async ({
       {
         about:
           "Building practical AI workflows and sharing what works with the community.",
-        displayName: "Mark Fenner",
-        nip05Handle: "mark@devin-builders.example",
+        displayName: "Alice Example",
+        nip05Handle: "alice@example.com",
         pubkey: TEST_IDENTITIES.bob.pubkey,
-        website: "https://markfenner.dev/builds",
+        website: "https://alice.example/builds",
         bannerUrl: MOCK_BANNER_URL,
         bannerPosition: { x: 18, y: 82 },
         socialLinks: [
           {
             kind: "github",
             label: "GitHub",
-            url: "https://github.com/fenner888",
+            url: "https://github.com/alice",
           },
           {
             kind: "linkedin",
             label: "LinkedIn",
-            url: "https://linkedin.com/in/mark-fenner",
+            url: "https://linkedin.com/in/alice-example",
           },
           {
             kind: "x",
             label: "X",
-            url: "https://x.com/hybrid",
+            url: "https://x.com/alice_example",
           },
         ],
       },
@@ -119,12 +119,12 @@ test("shows a richer human profile with verified channel context", async ({
 
   const panel = page.getByTestId("user-profile-panel");
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText("Mark Fenner");
+  await expect(panel).toContainText("Alice Example");
   await expect(panel).toContainText(
     "Building practical AI workflows and sharing what works with the community.",
   );
   await expect(panel.getByTestId("user-profile-website")).toContainText(
-    "markfenner.dev/builds",
+    "alice.example/builds",
   );
   await expect(panel.getByTestId("user-profile-banner")).toBeVisible();
   await expect
@@ -146,10 +146,10 @@ test("shows a richer human profile with verified channel context", async ({
     panel.getByTestId("user-profile-banner").locator("img"),
   ).toHaveCSS("object-position", "18% 82%");
   await expect(panel.getByTestId("user-profile-social-github-0")).toContainText(
-    "@fenner888",
+    "@alice",
   );
   await expect(panel.getByTestId("user-profile-social-x-2")).toContainText(
-    "@hybrid",
+    "@alice_example",
   );
   await expect(panel.getByTestId("user-profile-channel-role")).toContainText(
     "Member in #general",
@@ -291,25 +291,23 @@ test("uploads a banner and saves social links from profile settings", async ({
   ).toHaveCount(0);
 
   await page.getByTestId("profile-metadata-edit").click();
-  await page.getByTestId("profile-social-github").fill("github.com/fenner888");
+  await page.getByTestId("profile-social-github").fill("github.com/alice");
   await page
     .getByTestId("profile-social-linkedin")
-    .fill("linkedin.com/in/mark-fenner");
+    .fill("linkedin.com/in/alice-example");
   await page.getByText("Add custom link", { exact: true }).click();
   await page.getByLabel("Custom link 1 label").fill("Portfolio");
-  await page
-    .getByLabel("Custom link 1 URL")
-    .fill("https://markfenner.dev/work");
+  await page.getByLabel("Custom link 1 URL").fill("https://alice.example/work");
   await page.getByTestId("profile-metadata-edit").click();
 
   await expect(page.getByTestId("profile-social-github-value")).toContainText(
-    "@fenner888",
+    "@alice",
   );
   await expect(page.getByTestId("profile-social-linkedin-value")).toContainText(
-    "@mark-fenner",
+    "@alice-example",
   );
   await expect(page.getByTestId("profile-social-custom-value")).toContainText(
-    "markfenner.dev",
+    "alice.example",
   );
 
   await waitForAnimations(page);
@@ -345,7 +343,7 @@ test("rejects mismatched social domains and caps custom profile links", async ({
 
   await page
     .getByTestId("profile-social-github")
-    .fill("https://github.com/fenner888");
+    .fill("https://github.com/alice");
   for (let index = 0; index < 5; index += 1) {
     await page.getByText("Add custom link", { exact: true }).click();
   }
@@ -410,13 +408,13 @@ test("keeps the rich profile inside a narrow desktop viewport", async ({
       {
         about: "Building practical AI workflows for the community.",
         bannerUrl: MOCK_BANNER_URL,
-        displayName: "Mark Fenner",
+        displayName: "Alice Example",
         pubkey: TEST_IDENTITIES.bob.pubkey,
         socialLinks: [
           {
             kind: "github",
             label: "GitHub",
-            url: "https://github.com/fenner888",
+            url: "https://github.com/alice",
           },
         ],
       },

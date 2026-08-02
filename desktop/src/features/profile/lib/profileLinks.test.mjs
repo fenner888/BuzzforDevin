@@ -9,11 +9,11 @@ import {
 
 test("normalizes official social profile URLs", () => {
   assert.equal(
-    normalizeProfileLinkUrl("github.com/fenner888", "github"),
-    "https://github.com/fenner888",
+    normalizeProfileLinkUrl("github.com/alice", "github"),
+    "https://github.com/alice",
   );
   assert.equal(
-    normalizeProfileLinkUrl("https://example.com/fenner888", "github"),
+    normalizeProfileLinkUrl("https://example.com/alice", "github"),
     null,
   );
   assert.equal(normalizeProfileLinkUrl("http://x.com/hybrid", "x"), null);
@@ -43,19 +43,19 @@ test("validates custom labels and duplicate predefined links", () => {
 
 test("formats profile link display values", () => {
   assert.equal(
-    profileLinkDisplayValue("https://github.com/fenner888", "github"),
-    "@fenner888",
+    profileLinkDisplayValue("https://github.com/alice", "github"),
+    "@alice",
   );
   assert.equal(
     profileLinkDisplayValue(
-      "https://www.linkedin.com/in/mark-fenner?tracking=ignored",
+      "https://www.linkedin.com/in/alice-example?tracking=ignored",
       "linkedin",
     ),
-    "@mark-fenner",
+    "@alice-example",
   );
   assert.equal(
-    profileLinkDisplayValue("https://x.com/hybrid/status/123", "x"),
-    "@hybrid",
+    profileLinkDisplayValue("https://x.com/alice_example/status/123", "x"),
+    "@alice_example",
   );
   assert.equal(
     profileLinkDisplayValue(

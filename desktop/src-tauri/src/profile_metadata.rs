@@ -9,6 +9,7 @@ const MAX_PROFILE_LINK_LABEL_CHARS: usize = 40;
 const MAX_PROFILE_URL_CHARS: usize = 2_048;
 
 /// Kind 0 — NIP-01 profile metadata (full snapshot).
+#[derive(Default)]
 pub(crate) struct ProfileMetadata<'a> {
     pub(crate) display_name: Option<&'a str>,
     pub(crate) name: Option<&'a str>,
@@ -216,15 +217,15 @@ mod tests {
         let links = normalize_profile_links(vec![ProfileLinkInfo {
             kind: "github".to_string(),
             label: "ignored".to_string(),
-            url: "github.com/fenner888".to_string(),
+            url: "github.com/alice".to_string(),
         }])
         .unwrap();
         assert_eq!(links[0].label, "GitHub");
-        assert_eq!(links[0].url, "https://github.com/fenner888");
+        assert_eq!(links[0].url, "https://github.com/alice");
         assert!(normalize_profile_links(vec![ProfileLinkInfo {
             kind: "github".to_string(),
             label: "GitHub".to_string(),
-            url: "https://example.com/fenner888".to_string(),
+            url: "https://example.com/alice".to_string(),
         }])
         .is_err());
     }

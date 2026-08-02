@@ -1,9 +1,5 @@
 import * as React from "react";
-import {
-  ArrowUpRight,
-  CircleAlert,
-  UserPlus,
-} from "lucide-react";
+import { ArrowUpRight, CircleAlert, UserPlus } from "lucide-react";
 
 import { MemorySection } from "@/features/agent-memory/ui/MemorySection";
 import { useAgentWorking } from "@/features/agents/agentWorkingSignal";

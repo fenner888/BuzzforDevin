@@ -37,6 +37,7 @@ export default defineConfig({
         "**/message-feedback-snapshots.spec.ts",
         "**/custom-emoji.spec.ts",
         "**/profile-custom-emoji-status.spec.ts",
+        "**/profile-rich-preview.spec.ts",
         "**/custom-emoji-ui.spec.ts",
         "**/channel-mute.spec.ts",
         "**/channel-star.spec.ts",

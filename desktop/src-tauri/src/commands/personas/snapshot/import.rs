@@ -961,14 +961,8 @@ mod import_avatar_tests {
 
         let event = crate::events::build_profile(crate::events::ProfileMetadata {
             display_name: Some("Imported agent"),
-            name: None,
             picture: Some(&avatar),
-            about: None,
-            website: None,
-            nip05: None,
-            banner: None,
-            banner_position: None,
-            social_links: None,
+            ..Default::default()
         })
         .unwrap()
         .sign_with_keys(&nostr::Keys::generate())
@@ -1000,7 +994,6 @@ mod import_avatar_tests {
                 panic!("malformed avatars must not be uploaded")
             })
             .await;
-
         assert_eq!(result.unwrap_err(), "Snapshot avatar data is malformed.");
     }
 }

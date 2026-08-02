@@ -43,7 +43,10 @@ import {
 } from "@/features/profile/lib/selfProfileStorage";
 import { useCommunities } from "@/features/communities/useCommunities";
 import { updateCachedChannelMemberDisplayName } from "@/features/channels/channelMemberProfileCache";
-import { useChannelMembersQuery } from "@/features/channels/hooks";
+import {
+  useChannelMembersQuery,
+  useChannelsQuery,
+} from "@/features/channels/hooks";
 
 export const profileQueryKey = ["profile"] as const;
 export const contactListQueryKey = (pubkey: string) =>
@@ -61,6 +64,27 @@ export function useProfileChannelRole(
       (member) => member.pubkey.toLowerCase() === pubkey?.toLowerCase(),
     )?.role ?? null
   );
+}
+
+export function useProfileChannelContext(
+  channelId: string | null,
+  pubkey: string | null,
+  isBot: boolean,
+) {
+  const channelsQuery = useChannelsQuery();
+  const role = useProfileChannelRole(
+    channelId,
+    pubkey,
+    Boolean(channelId && pubkey && !isBot),
+  );
+  return {
+    isBot,
+    channelRole: isBot ? null : role,
+    channelName: isBot
+      ? null
+      : (channelsQuery.data?.find((channel) => channel.id === channelId)
+          ?.name ?? null),
+  };
 }
 
 /**
