@@ -8,16 +8,22 @@ import {
   discoverAcpRuntimes,
   getChannelMembers,
   listManagedAgents,
+  removeChannelMember,
   updateManagedAgent,
 } from "@/shared/api/tauri";
+import { relayClient } from "@/shared/api/relayClient";
 import { getGlobalAgentConfig } from "@/shared/api/tauriGlobalAgentConfig";
+import { getIdentity } from "@/shared/api/tauriIdentity";
 import { listPersonas, setPersonaActive } from "@/shared/api/tauriPersonas";
 import type {
   AcpRuntime,
   AgentPersona,
+  ChannelMember,
   CreateManagedAgentInput,
   ManagedAgent,
+  RelayEvent,
 } from "@/shared/api/types";
+import { KIND_MANAGED_AGENT } from "@/shared/constants/kinds";
 import { normalizePubkey } from "@/shared/lib/pubkey";
 
 export const WELCOME_GUIDE_AGENT_NAME = "Fizz";
@@ -206,6 +212,101 @@ async function ensureWelcomeTeamMembership(
   }
 }
 
+const PUBKEY_PATTERN = /^[0-9a-f]{64}$/;
+
+/**
+ * Find old, same-owner built-in Welcome agents that can be safely removed from
+ * this channel after the current local trio has joined.
+ */
+export function findStaleWelcomeTeamMemberPubkeys(
+  members: readonly ChannelMember[],
+  events: readonly RelayEvent[],
+  ownerPubkey: string,
+  currentAgents: readonly ManagedAgent[],
+) {
+  const normalizedOwner = normalizePubkey(ownerPubkey);
+  const currentPubkeys = new Set(
+    currentAgents.map((agent) => normalizePubkey(agent.pubkey)),
+  );
+  const memberPubkeys = new Set(
+    members
+      .filter((member) => member.isAgent)
+      .map((member) => normalizePubkey(member.pubkey)),
+  );
+  const welcomePersonaIds = new Set<string>(
+    WELCOME_TEAM_STARTERS.map(({ personaId }) => personaId),
+  );
+  const stalePubkeys = new Set<string>();
+
+  for (const event of events) {
+    if (
+      event.kind !== KIND_MANAGED_AGENT ||
+      normalizePubkey(event.pubkey) !== normalizedOwner
+    ) {
+      continue;
+    }
+    const pubkey = normalizePubkey(
+      event.tags.find((tag) => tag[0] === "d")?.[1] ?? "",
+    );
+    if (
+      !PUBKEY_PATTERN.test(pubkey) ||
+      !memberPubkeys.has(pubkey) ||
+      currentPubkeys.has(pubkey)
+    ) {
+      continue;
+    }
+
+    try {
+      const content = JSON.parse(event.content) as { persona_id?: unknown };
+      if (
+        typeof content.persona_id === "string" &&
+        welcomePersonaIds.has(content.persona_id)
+      ) {
+        stalePubkeys.add(pubkey);
+      }
+    } catch {
+      // Malformed public metadata is not enough evidence to remove a member.
+    }
+  }
+
+  return [...stalePubkeys];
+}
+
+async function pruneStaleWelcomeTeamMemberships(
+  channelId: string,
+  currentAgents: WelcomeTeamAgents,
+) {
+  const [members, identity] = await Promise.all([
+    getChannelMembers(channelId),
+    getIdentity(),
+  ]);
+  const botPubkeys = [
+    ...new Set(
+      members
+        .filter((member) => member.isAgent)
+        .map((member) => normalizePubkey(member.pubkey))
+        .filter((pubkey) => PUBKEY_PATTERN.test(pubkey)),
+    ),
+  ];
+  if (botPubkeys.length === 0) return;
+
+  const events = await relayClient.fetchEvents({
+    kinds: [KIND_MANAGED_AGENT],
+    authors: [identity.pubkey],
+    "#d": botPubkeys,
+    limit: botPubkeys.length,
+  });
+  const stalePubkeys = findStaleWelcomeTeamMemberPubkeys(
+    members,
+    events,
+    identity.pubkey,
+    currentAgents,
+  );
+  for (const pubkey of stalePubkeys) {
+    await removeChannelMember(channelId, pubkey);
+  }
+}
+
 export async function buildWelcomeStarterCreateInput(
   starter: WelcomeTeamStarterDefinition,
   persona: AgentPersona,
@@ -337,6 +438,14 @@ async function provisionWelcomeTeam(
     }
   }
   await ensureWelcomeTeamMembership(channelId, welcomeAgents);
+  await pruneStaleWelcomeTeamMemberships(channelId, welcomeAgents).catch(
+    (error) => {
+      console.warn(
+        "[welcomeGuide] Could not prune stale Welcome Team memberships:",
+        error,
+      );
+    },
+  );
   return welcomeAgents;
 }
 
