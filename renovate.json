@@ -3,7 +3,7 @@
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "prCreation": "immediate",
   "minimumReleaseAge": "7 days",
-  "automerge": true,
+  "automerge": false,
   "rebaseWhen": "conflicted",
   "recreateWhen": "always",
   "separateMinorPatch": true,
