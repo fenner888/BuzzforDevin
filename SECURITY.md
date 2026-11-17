@@ -1,11 +1,15 @@
 # Security Policy
 
+Tier 2, reviewed 2026-11-17
+
 ## Reporting a Vulnerability
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-If you discover a security vulnerability in Buzz, please report it by emailing
-**buzz@block.xyz**. Include as much detail as possible:
+If you discover a security vulnerability in Buzz for Devin, please report it through
+[GitHub private vulnerability reporting](https://github.com/fenner888/BuzzforDevin/security/advisories/new).
+Issues in upstream Buzz code may also be reported to **buzz@block.xyz**.
+Include as much detail as possible:
 
 - A description of the vulnerability and its potential impact
 - Steps to reproduce or a proof-of-concept (if available)
